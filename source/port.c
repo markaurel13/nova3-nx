@@ -375,21 +375,43 @@ void port_run(void) {
             stick_ly = 0.0f;
         }
 
-        int horizontal_key = stick_lx > 0.40f ? 22 : (stick_lx < -0.40f ? 21 : 0);
+        // Horizontal deadzone with hysteresis (prevents Joy-Con stick drift moving on its own)
+        static int current_h_key = 0;
+        int horizontal_key = 0;
+        if (current_h_key == 22) {
+            horizontal_key = (stick_lx > 0.40f) ? 22 : 0;
+        } else if (current_h_key == 21) {
+            horizontal_key = (stick_lx < -0.40f) ? 21 : 0;
+        } else {
+            horizontal_key = (stick_lx > 0.55f) ? 22 : (stick_lx < -0.55f ? 21 : 0);
+        }
+        current_h_key = horizontal_key;
+
+        // Vertical walk deadzone with hysteresis
+        static int current_v_walk = 0;
+        int vertical_walk = 0;
+        if (current_v_walk == 19) {
+            vertical_walk = (stick_ly > 0.40f) ? 19 : 0;
+        } else if (current_v_walk == 20) {
+            vertical_walk = (stick_ly < -0.40f) ? 20 : 0;
+        } else {
+            vertical_walk = (stick_ly > 0.55f) ? 19 : (stick_ly < -0.55f ? 20 : 0);
+        }
+        current_v_walk = vertical_walk;
 
         // Sprint detection: tracks double-flick timing
         static uint64_t sprint_start_ms = 0;
         static int stick_forward_latched = 0;
         static int is_sprinting = 0;
 
-        const float PUSH_THRESH = 0.55f;
-        const float RELEASE_THRESH = 0.22f;
+        const float PUSH_THRESH = 0.65f;
+        const float RELEASE_THRESH = 0.40f;
 
         if (!stick_forward_latched && stick_ly >= PUSH_THRESH) {
             stick_forward_latched = 1;
             uint64_t idle_time = now_ms - forward_release_ms;
-            // Double-flick forward: stick was pushed forward, released, and pushed again within 340 ms
-            if (idle_time > 30 && idle_time < 340) {
+            // Double-flick forward: stick was pushed forward, released, and pushed again within 380 ms
+            if (idle_time > 30 && idle_time < 380) {
                 is_sprinting = 1;
                 sprint_start_ms = now_ms;
                 forward_release_ms = 0;
@@ -403,7 +425,7 @@ void port_run(void) {
             }
         }
 
-        // L3 (StickL) also triggers/toggles sprint immediately
+        // L3 (StickL) also triggers sprint immediately
         if (keys_down & HidNpadButton_StickL) {
             is_sprinting = 1;
             sprint_start_ms = now_ms;
@@ -413,29 +435,24 @@ void port_run(void) {
         if (is_sprinting) {
             uint64_t elapsed = now_ms - sprint_start_ms;
             // Synthesize clean double-tap pulse Gameloft engine expects:
-            // 0..55ms: Key 19 DOWN
-            // 55..110ms: Key 19 UP
-            // 110ms+: Key 19 HELD DOWN continuously for sprinting
-            if (elapsed < 55) {
+            // 0..50ms: Key 19 DOWN
+            // 50..100ms: Key 19 UP
+            // 100ms+: Key 19 HELD DOWN continuously for sprinting
+            if (elapsed < 50) {
                 vertical_key = 19;
-            } else if (elapsed < 110) {
+            } else if (elapsed < 100) {
                 vertical_key = 0;
             } else {
                 vertical_key = 19;
             }
 
             // Stop sprinting when stick is released
-            if (stick_ly < RELEASE_THRESH && elapsed >= 110) {
+            if (stick_ly < RELEASE_THRESH && elapsed >= 100) {
                 is_sprinting = 0;
                 vertical_key = 0;
             }
         } else {
-            // Normal walking
-            if (stick_ly > 0.30f) {
-                vertical_key = 19; // UP
-            } else if (stick_ly < -0.35f) {
-                vertical_key = 20; // DOWN
-            }
+            vertical_key = vertical_walk;
         }
         
         static int left_horizontal_key = 0;
