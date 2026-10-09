@@ -44,10 +44,14 @@ static jni_touch_fn nova_touch;
 static jni_vec2_fn nova_left_stick;
 typedef void* (*nova3_level_get_fn)(void);
 typedef void* (*nova3_get_player_component_fn)(void *level);
+typedef void (*nova3_weapon_end_rush_fn)(void *weapon);
+typedef void (*nova3_weapon_manager_aim_fn)(void *manager);
 typedef void (*nova3_weapon_manager_unaim_fn)(void *manager);
 
 static nova3_level_get_fn nova3_ads_level_get = NULL;
 static nova3_get_player_component_fn nova3_ads_get_player_component = NULL;
+static nova3_weapon_end_rush_fn nova3_weapon_end_rush = NULL;
+static nova3_weapon_manager_aim_fn nova3_weapon_manager_aim = NULL;
 static nova3_weapon_manager_unaim_fn nova3_ads_weapon_manager_unaim = NULL;
 
 static void *nova3_ads_current_weapon(void **manager_output) {
@@ -74,12 +78,33 @@ static void *nova3_ads_current_weapon(void **manager_output) {
 }
 
 static int nova3_ads_shoulder_held = 0;
+static int nova3_sprint_active = 0;
 
-static int nova3_ads_hold_begin(void) {
+static void nova3_ads_hold_begin(void) {
     nova3_ads_shoulder_held = 1;
-    void *weapon = nova3_ads_current_weapon(NULL);
-    int already_aimed = weapon && *((uint8_t *)weapon + 0x61U) != 0U;
-    return already_aimed ? 0 : 1;
+    nova3_sprint_active = 0; // Cancel sprint immediately!
+
+    void *manager = NULL;
+    void *weapon = nova3_ads_current_weapon(&manager);
+    if (!weapon || !manager) return;
+
+    // If currently sprinting/rushing, cancel sprint and rush effects immediately
+    if (*((uint8_t *)weapon + 0x64U) != 0U) {
+        if (nova3_weapon_end_rush)
+            nova3_weapon_end_rush(weapon);
+    }
+
+    void *level = nova3_ads_level_get ? nova3_ads_level_get() : NULL;
+    uint8_t *player = level && nova3_ads_get_player_component ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
+    if (player) {
+        player[0x45U] = 0; // Clear sprint controller state
+    }
+
+    // Directly engage aim in weapon manager
+    int already_aimed = *((uint8_t *)weapon + 0x61U) != 0U;
+    if (!already_aimed && nova3_weapon_manager_aim) {
+        nova3_weapon_manager_aim(manager);
+    }
 }
 
 static void nova3_ads_hold_end(void) {
@@ -258,6 +283,8 @@ void port_run(void) {
     nova_is_moga = (uint8_t *)so_try_find_addr_rx(&so_mod, "_ZN3glf8s_isMOGAE");
     nova3_ads_level_get = (nova3_level_get_fn)(so_mod.load_virtbase + 0x002E6248U);
     nova3_ads_get_player_component = (nova3_get_player_component_fn)(so_mod.load_virtbase + 0x002F14B4U);
+    nova3_weapon_end_rush = (nova3_weapon_end_rush_fn)(so_mod.load_virtbase + 0x0016B6ECU);
+    nova3_weapon_manager_aim = (nova3_weapon_manager_aim_fn)(so_mod.load_virtbase + 0x00585FF0U);
     nova3_ads_weapon_manager_unaim = (nova3_weapon_manager_unaim_fn)(so_mod.load_virtbase + 0x00585FC8U);
 
 
@@ -369,7 +396,6 @@ void port_run(void) {
         int vertical_key = sticks[1] > 0.5f ? 19 : (sticks[1] < -0.5f ? 20 : 0);
         
         // Unified Sprint Controller: activates on double-flick forward OR L3 click
-        static int sprint_active = 0;
         static int stick_was_forward = 0;
         static uint64_t forward_release_ms = 0;
 
@@ -378,8 +404,8 @@ void port_run(void) {
             if (!stick_was_forward) {
                 stick_was_forward = 1;
                 uint64_t idle_time = now_ms - forward_release_ms;
-                if (idle_time > 40 && idle_time < 380) {
-                    sprint_active = 1;
+                if (idle_time > 40 && idle_time < 380 && !nova3_ads_shoulder_held) {
+                    nova3_sprint_active = 1;
                 }
             }
         } else if (sticks[1] < 0.25f) {
@@ -391,17 +417,17 @@ void port_run(void) {
 
         // 2. L3 (StickL) click detection
         if (keys_down & HidNpadButton_StickL) {
-            if (sticks[1] > 0.2f) {
-                sprint_active = !sprint_active;
+            if (sticks[1] > 0.2f && !nova3_ads_shoulder_held) {
+                nova3_sprint_active = !nova3_sprint_active;
             } else {
-                sprint_active = 0;
+                nova3_sprint_active = 0;
             }
         }
 
         // Cancel sprint if stick is released (stopped moving forward) or aiming (ZL)
-        if (sprint_active) {
+        if (nova3_sprint_active) {
             if (sticks[1] <= 0.2f || nova3_ads_shoulder_held) {
-                sprint_active = 0;
+                nova3_sprint_active = 0;
             }
         }
 
@@ -409,14 +435,14 @@ void port_run(void) {
             void *level = nova3_ads_level_get();
             uint8_t *player = level ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
             if (player) {
-                if (sprint_active) {
+                if (nova3_sprint_active) {
                     player[0x32cU] = 1; // Ensure rush capability is enabled on this level
                     player[0x45U] = 1;  // Activate controller rush state
                 } else {
                     player[0x45U] = 0;  // Deactivate controller rush state
                 }
             } else {
-                sprint_active = 0;
+                nova3_sprint_active = 0;
             }
         }
         
@@ -477,7 +503,7 @@ void port_run(void) {
             if (keys_down & HidNpadButton_Right) nova_key_down(env, gl2jni_class, 22);
             if (keys_down & HidNpadButton_L) nova_key_down(env, gl2jni_class, 100);
             if (keys_down & HidNpadButton_R) nova_key_down(env, gl2jni_class, 227); // R1 (Shoot)
-            if (keys_down & HidNpadButton_ZL) { if (nova3_ads_hold_begin()) { nova_key_down(env, gl2jni_class, 102); nova_key_up(env, gl2jni_class, 102); } } // L2
+            if (keys_down & HidNpadButton_ZL) nova3_ads_hold_begin(); // L2 (ADS / Aim)
             if (keys_down & HidNpadButton_ZR) nova_key_down(env, gl2jni_class, 103); // R2
             if (keys_down & HidNpadButton_StickR) nova_key_down(env, gl2jni_class, 109); // R3 (Change Weapon via SELECT)
         }
