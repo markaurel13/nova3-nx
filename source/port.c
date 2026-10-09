@@ -98,7 +98,6 @@ static int *nova_power_status = NULL;
 static uint8_t *nova_power_status_ba = NULL;
 static uint8_t *nova_moga_pro = NULL;
 static uint8_t *nova_is_moga = NULL;
-static uint8_t *nova_rush_by_double_touch = NULL;
 
 static uintptr_t required_symbol(const char *name) {
     uintptr_t address = so_try_find_addr_rx(&so_mod, name);
@@ -268,9 +267,6 @@ void port_run(void) {
     if (nova_moga_pro) *nova_moga_pro = 1;
     if (nova_is_moga) *nova_is_moga = 1;
 
-    nova_rush_by_double_touch = (uint8_t *)(so_mod.load_virtbase + 0x00D9175CU);
-    if (nova_rush_by_double_touch) *nova_rush_by_double_touch = 0;
-
 
 
     // 3. Fake the DRM / Installer lock (same as PS Vita)
@@ -364,8 +360,6 @@ void port_run(void) {
         if (nova_power_status_ba) *nova_power_status_ba = 1;
         if (nova_moga_pro) *nova_moga_pro = 1;
         if (nova_is_moga) *nova_is_moga = 1;
-        if (nova_rush_by_double_touch) *nova_rush_by_double_touch = 0;
-
         rt_pad_read(&pad, sticks);
 
         uint64_t now_ms = (uint64_t)(armTicksToNs(armGetSystemTick()) / 1000000ULL);
@@ -374,20 +368,40 @@ void port_run(void) {
         int horizontal_key = sticks[0] > 0.5f ? 22 : (sticks[0] < -0.5f ? 21 : 0);
         int vertical_key = sticks[1] > 0.5f ? 19 : (sticks[1] < -0.5f ? 20 : 0);
         
-        // Native L3 Sprint Controller (direct hook into Gameloft player rush state)
-        static int l3_sprint_active = 0;
+        // Unified Sprint Controller: activates on double-flick forward OR L3 click
+        static int sprint_active = 0;
+        static int stick_was_forward = 0;
+        static uint64_t forward_release_ms = 0;
+
+        // 1. Double-flick forward detection
+        if (sticks[1] > 0.55f) {
+            if (!stick_was_forward) {
+                stick_was_forward = 1;
+                uint64_t idle_time = now_ms - forward_release_ms;
+                if (idle_time > 40 && idle_time < 380) {
+                    sprint_active = 1;
+                }
+            }
+        } else if (sticks[1] < 0.25f) {
+            if (stick_was_forward) {
+                stick_was_forward = 0;
+                forward_release_ms = now_ms;
+            }
+        }
+
+        // 2. L3 (StickL) click detection
         if (keys_down & HidNpadButton_StickL) {
             if (sticks[1] > 0.2f) {
-                l3_sprint_active = !l3_sprint_active;
+                sprint_active = !sprint_active;
             } else {
-                l3_sprint_active = 0;
+                sprint_active = 0;
             }
         }
 
         // Cancel sprint if stick is released (stopped moving forward) or aiming (ZL)
-        if (l3_sprint_active) {
+        if (sprint_active) {
             if (sticks[1] <= 0.2f || nova3_ads_shoulder_held) {
-                l3_sprint_active = 0;
+                sprint_active = 0;
             }
         }
 
@@ -395,14 +409,14 @@ void port_run(void) {
             void *level = nova3_ads_level_get();
             uint8_t *player = level ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
             if (player) {
-                if (l3_sprint_active) {
+                if (sprint_active) {
                     player[0x32cU] = 1; // Ensure rush capability is enabled on this level
                     player[0x45U] = 1;  // Activate controller rush state
                 } else {
                     player[0x45U] = 0;  // Deactivate controller rush state
                 }
             } else {
-                l3_sprint_active = 0;
+                sprint_active = 0;
             }
         }
         
