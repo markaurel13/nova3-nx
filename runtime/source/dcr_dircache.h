@@ -8,6 +8,8 @@
 int dcr_dircache_missing(const char *real);
 /* Something was created, deleted or renamed: forget every listing. */
 void dcr_dircache_forget(void);
+/* Returns 1 if real path is inside data/ or external/ scope */
+int dcr_dircache_in_scope(const char *real);
 /* One line in debug.log: listings made, misses answered. */
 void dcr_dircache_report(void);
 

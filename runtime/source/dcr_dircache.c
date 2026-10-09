@@ -221,6 +221,13 @@ void dcr_dircache_forget(void) {
   mutexUnlock(&g_lock);
 }
 
+int dcr_dircache_in_scope(const char *real) {
+  char norm[320];
+  if (!real || !normalize(real, norm, sizeof norm))
+    return 0;
+  return in_scope(norm);
+}
+
 void dcr_dircache_report(void) {
   if (g_listed || g_answered)
     debugPrintf("[io] directory index: %lu listings, %lu missing files answered without the card\n",

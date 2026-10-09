@@ -419,6 +419,7 @@ static uint64_t g_gl_opens, g_gl_reads, g_gl_ticks;
 /* dcr_dircache.c: missing files in the app dirs, answered without the card */
 int dcr_dircache_missing(const char *real);
 void dcr_dircache_forget(void);
+int dcr_dircache_in_scope(const char *real);
 
 /* fds open on the APK: their reads go through the RAM cache (dcr_apkcache.c) */
 int dcr_apkcache_is_apk(const char *real);
@@ -663,7 +664,7 @@ int b_open(const char *path, int lflags, ...) {
     __atomic_fetch_add(&g_gl_opens, 1, __ATOMIC_RELAXED);
     __atomic_fetch_add(&g_gl_ticks, armGetSystemTick() - t_open, __ATOMIC_RELAXED);
   }
-  if (fd >= 0 && may_create)
+  if (fd >= 0 && may_create && dcr_dircache_in_scope(real))
     dcr_dircache_forget();
   if (fd >= 0) {
     b_track_open(fd, real, (lflags & L_O_ACCMODE) != L_O_RDONLY);
@@ -1067,10 +1068,10 @@ int b_access(const char *path, int mode) {
   struct b_stat st;
   return b_stat(path, &st); /* newlib's access() is unreliable over fsdev */
 }
-int b_mkdir(const char *path, b_mode_t mode) { PATH_OP((dcr_dircache_forget(), mkdir(real, 0777))); }
-int b_rmdir(const char *path) { PATH_OP((dcr_dircache_forget(), rmdir(real))); }
-int b_unlink(const char *path) { PATH_OP((dcr_dircache_forget(), unlink(real))); }
-int b_remove(const char *path) { PATH_OP((dcr_dircache_forget(), remove(real))); }
+int b_mkdir(const char *path, b_mode_t mode) { PATH_OP(((dcr_dircache_in_scope(real) ? dcr_dircache_forget() : (void)0), mkdir(real, 0777))); }
+int b_rmdir(const char *path) { PATH_OP(((dcr_dircache_in_scope(real) ? dcr_dircache_forget() : (void)0), rmdir(real))); }
+int b_unlink(const char *path) { PATH_OP(((dcr_dircache_in_scope(real) ? dcr_dircache_forget() : (void)0), unlink(real))); }
+int b_remove(const char *path) { PATH_OP(((dcr_dircache_in_scope(real) ? dcr_dircache_forget() : (void)0), remove(real))); }
 int b_chmod(const char *path, b_mode_t mode) { PATH_OP(((void)real, 0)); }
 /* On a file we hold open for writing, through that handle (see "paths of
  * open files"); otherwise newlib opens, sizes and closes it. */

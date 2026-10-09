@@ -131,6 +131,7 @@ long long dcr_apkcache_size(void);
 const char *dcr_addr_name(uint32_t a, char *buf, size_t cap); /* exc_handler.c */
 int dcr_dircache_missing(const char *real);
 void dcr_dircache_forget(void);
+int dcr_dircache_in_scope(const char *real);
 ssize_t dcr_apkcache_read(uint64_t off, void *buf, size_t n);
 int dcr_apkcache_is_apk(const char *real);
 
@@ -181,9 +182,10 @@ static FILE *apk_fopen(void) {
 }
 
 /* ----------------------------------------------------------- open/close */
-#define GLA_POOL_MAX 128
-#define GLA_PER_FILE_MAX 16
-#define GLA_ACTIVE_MAX 256
+/* ----------------------------------------------------------- open/close */
+#define GLA_POOL_MAX 512
+#define GLA_PER_FILE_MAX 32
+#define GLA_ACTIVE_MAX 512
 
 typedef struct {
   FILE *fp;
@@ -197,6 +199,101 @@ static int g_gla_active_count = 0;
 static Mutex g_gla_pool_lock;
 uint32_t g_gla_pool_hits = 0;
 uint32_t g_gla_pool_misses = 0;
+
+/* ------------------------------------------------- Non-blocking Auto-Save */
+typedef struct AsyncSaveTask {
+  char *buf;
+  size_t size;
+  char path[DCR_PATH_MAX];
+  struct AsyncSaveTask *next;
+} AsyncSaveTask;
+
+static AsyncSaveTask *g_save_queue_head = NULL;
+static AsyncSaveTask *g_save_queue_tail = NULL;
+static Mutex g_save_lock;
+static CondVar g_save_cv;
+static Thread g_save_thread;
+static int g_save_thread_running = 0;
+static int g_save_thread_stop = 0;
+
+typedef struct {
+  FILE *mem_fp;
+  char *buf;
+  size_t size;
+  char real_path[DCR_PATH_MAX];
+} ActiveMemWrite;
+
+#define MAX_ACTIVE_MEM_WRITES 8
+static ActiveMemWrite g_mem_writes[MAX_ACTIVE_MEM_WRITES];
+static int g_mem_writes_count = 0;
+static Mutex g_mem_writes_lock;
+
+static void async_save_worker(void *arg) {
+  (void)arg;
+  while (1) {
+    mutexLock(&g_save_lock);
+    while (!g_save_queue_head && !g_save_thread_stop) {
+      condvarWait(&g_save_cv, &g_save_lock);
+    }
+    if (g_save_thread_stop && !g_save_queue_head) {
+      mutexUnlock(&g_save_lock);
+      break;
+    }
+    AsyncSaveTask *task = g_save_queue_head;
+    g_save_queue_head = task->next;
+    if (!g_save_queue_head) g_save_queue_tail = NULL;
+    mutexUnlock(&g_save_lock);
+
+    u64 t0 = armGetSystemTick();
+    FILE *f = fopen(task->path, "wb");
+    if (f) {
+      if (task->size > 0 && task->buf) {
+        fwrite(task->buf, 1, task->size, f);
+      }
+      fclose(f);
+      u64 ms = armTicksToNs(armGetSystemTick() - t0) / 1000000ull;
+      debugPrintf("[save] async save complete: %s (%zu bytes in %llu ms in background)\n",
+                  task->path, task->size, (unsigned long long)ms);
+    } else {
+      debugPrintf("[save] async save failed to open %s\n", task->path);
+    }
+
+    if (task->buf) free(task->buf);
+    free(task);
+  }
+}
+
+static void async_save_init_once(void) {
+  static int inited = 0;
+  if (inited) return;
+  inited = 1;
+  mutexInit(&g_save_lock);
+  condvarInit(&g_save_cv);
+  mutexInit(&g_mem_writes_lock);
+  // Priority 0x30, Core 1 (non-interfering with core 0 render thread)
+  Result rc = threadCreate(&g_save_thread, async_save_worker, NULL, NULL, 0x8000, 0x30, 1);
+  if (R_SUCCEEDED(rc)) {
+    g_save_thread_running = 1;
+    threadStart(&g_save_thread);
+    debugPrintf("[save] async save worker thread started on core 1\n");
+  } else {
+    debugPrintf("[save] async save threadCreate failed 0x%x\n", rc);
+  }
+}
+
+static void async_save_flush_path(const char *real) {
+  if (!g_save_thread_running) return;
+  while (1) {
+    int pending = 0;
+    mutexLock(&g_save_lock);
+    for (AsyncSaveTask *t = g_save_queue_head; t; t = t->next) {
+      if (!strcmp(t->path, real)) { pending = 1; break; }
+    }
+    mutexUnlock(&g_save_lock);
+    if (!pending) break;
+    svcSleepThread(1000000ULL);
+  }
+}
 
 static inline const char *gla_basename(const char *path) {
   if (!path) return "";
@@ -216,6 +313,33 @@ void *b_fopen(const char *path, const char *mode) {
   }
   char buf[DCR_PATH_MAX];
   const char *real = dcr_translate_path(path, buf, sizeof buf);
+
+  // Non-blocking auto-save: buffer savegame writes in memory instantly
+  if (mode[0] == 'w' && (strstr(real, "a6.dat") || strstr(real, "a8.dat"))) {
+    async_save_init_once();
+    mutexLock(&g_mem_writes_lock);
+    if (g_save_thread_running && g_mem_writes_count < MAX_ACTIVE_MEM_WRITES) {
+      int idx = g_mem_writes_count++;
+      snprintf(g_mem_writes[idx].real_path, sizeof(g_mem_writes[idx].real_path), "%s", real);
+      g_mem_writes[idx].buf = NULL;
+      g_mem_writes[idx].size = 0;
+      FILE *mem_fp = open_memstream(&g_mem_writes[idx].buf, &g_mem_writes[idx].size);
+      g_mem_writes[idx].mem_fp = mem_fp;
+      mutexUnlock(&g_mem_writes_lock);
+      if (mem_fp) {
+        debugPrintf("[save] buffering savegame in RAM for non-blocking write: %s\n", path);
+        return mem_fp;
+      }
+      mutexLock(&g_mem_writes_lock);
+      g_mem_writes_count--;
+    }
+    mutexUnlock(&g_mem_writes_lock);
+  }
+
+  if (mode[0] == 'r' && (strstr(real, "a6.dat") || strstr(real, "a8.dat"))) {
+    async_save_flush_path(real);
+  }
+
   if (mode[0] == 'r' && !strchr(mode, '+') && dcr_apkcache_is_apk(real)) {
     FILE *a = apk_fopen();
     if (a) {
@@ -226,7 +350,10 @@ void *b_fopen(const char *path, const char *mode) {
     }
   }
   int writes = strpbrk(mode, "wa+") != NULL;
-  int is_gla_ro = (!writes && (strstr(real, ".gla") != NULL || strstr(real, ".bdae") != NULL || strstr(real, ".etc") != NULL));
+  int is_gla_ro = (!writes && (strstr(real, ".gla") != NULL ||
+                              strstr(real, ".bdae") != NULL ||
+                              strstr(real, ".etc") != NULL ||
+                              strstr(real, ".irr") != NULL));
 
   if (is_gla_ro) {
     const char *base = gla_basename(real);
@@ -256,7 +383,7 @@ void *b_fopen(const char *path, const char *mode) {
   }
   u64 t0 = armGetSystemTick();
   FILE *f = fopen(real, mode);
-  if (f && writes)
+  if (f && writes && dcr_dircache_in_scope(real))
     dcr_dircache_forget();
   u64 ms = armTicksToNs(armGetSystemTick() - t0) / 1000000ull;
   if (dcr_path_traced(path))
@@ -307,6 +434,46 @@ void *b_fdopen(int fd, const char *mode) {
 int b_fclose(void *fp) {
   if (std_kind(fp) != S_NONE)
     return 0;
+
+  mutexLock(&g_mem_writes_lock);
+  for (int i = 0; i < g_mem_writes_count; i++) {
+    if (g_mem_writes[i].mem_fp == (FILE *)fp) {
+      char target_path[DCR_PATH_MAX];
+      snprintf(target_path, sizeof(target_path), "%s", g_mem_writes[i].real_path);
+      fclose((FILE *)fp);
+      char *final_buf = g_mem_writes[i].buf;
+      size_t final_size = g_mem_writes[i].size;
+      g_mem_writes[i] = g_mem_writes[--g_mem_writes_count];
+      mutexUnlock(&g_mem_writes_lock);
+
+      AsyncSaveTask *task = malloc(sizeof(AsyncSaveTask));
+      if (task) {
+        task->buf = final_buf;
+        task->size = final_size;
+        snprintf(task->path, sizeof(task->path), "%s", target_path);
+        task->next = NULL;
+        mutexLock(&g_save_lock);
+        if (g_save_queue_tail) {
+          g_save_queue_tail->next = task;
+        } else {
+          g_save_queue_head = task;
+        }
+        g_save_queue_tail = task;
+        condvarWakeOne(&g_save_cv);
+        mutexUnlock(&g_save_lock);
+        debugPrintf("[save] queued async save of %s (%zu bytes) to background thread\n", target_path, final_size);
+      } else {
+        FILE *sf = fopen(target_path, "wb");
+        if (sf) {
+          if (final_buf && final_size) fwrite(final_buf, 1, final_size, sf);
+          fclose(sf);
+        }
+        if (final_buf) free(final_buf);
+      }
+      return 0;
+    }
+  }
+  mutexUnlock(&g_mem_writes_lock);
 
   mutexLock(&g_gla_pool_lock);
   int active_idx = -1;
