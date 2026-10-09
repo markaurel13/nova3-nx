@@ -41,10 +41,10 @@ int egl_init_port(void) {
     
     if (!eglMakeCurrent(s_display, s_surface, s_surface, s_context)) { debugPrintf("[egl] eglMakeCurrent failed\n"); return 0; }
     
-    // Lock presentation to 30 FPS (interval = 2 on 60Hz display)
-    eglSwapInterval(s_display, 2);
+    // Initial presentation at 60 FPS for boot, menus, and loading
+    eglSwapInterval(s_display, 1);
     
-    debugPrintf("[egl] EGL initialized successfully (30 FPS VSync lock active)!\n");
+    debugPrintf("[egl] EGL initialized successfully (Menus @ 60 FPS)!\n");
     return 1;
 }
 

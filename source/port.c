@@ -444,6 +444,19 @@ void port_run(void) {
 
         uint64_t t_step = armGetSystemTick();
 
+        // Dynamic swap interval: 60 FPS in menus/loading, 30 FPS locked in gameplay
+        int in_gameplay = (nova3_ads_level_get && nova3_ads_level_get() != NULL);
+        int wanted_swap_interval = in_gameplay ? 2 : 1;
+        static int current_swap_interval = -1;
+        if (wanted_swap_interval != current_swap_interval) {
+            current_swap_interval = wanted_swap_interval;
+            extern void egl_set_swap_interval(int interval);
+            egl_set_swap_interval(wanted_swap_interval);
+            debugPrintf("[port] Framerate target: %s (Swap Interval %d)\n",
+                in_gameplay ? "Gameplay @ 30 FPS" : "Menus/Loading @ 60 FPS",
+                wanted_swap_interval);
+        }
+
         egl_swap_port();
         dcr_boost_frame_end(frame_count);
         
@@ -462,7 +475,7 @@ void port_run(void) {
             );
         }
 
-        // Periodic Performance Metrics (every 120 frames ~ 2 seconds)
+        // Periodic Performance Metrics (every 120 frames ~ 2-4 seconds)
         extern uint32_t g_gla_pool_hits, g_gla_pool_misses;
         static uint64_t s_perf_start = 0;
         static uint32_t s_perf_frames = 0;
@@ -502,7 +515,8 @@ void port_run(void) {
             float in_ms  = (float)s_perf_total_in_us / (float)(s_perf_frames * 1000.0f);
             uint32_t hits_delta = g_gla_pool_hits - s_last_hits;
 
-            debugPrintf("[Perf (30 FPS Cap)] FPS: %.1f | Frame: avg %.2f ms (min %.2f, max %.2f) | CPU: %.2f ms, GPU/VSync: %.2f ms, In: %.2f ms | Drops: %u (>33ms) | Asset Cache: +%u hits (Total: %u, Misses: %u)\n",
+            debugPrintf("[Perf (%s)] FPS: %.1f | Frame: avg %.2f ms (min %.2f, max %.2f) | CPU: %.2f ms, GPU/VSync: %.2f ms, In: %.2f ms | Drops: %u (>33ms) | Asset Cache: +%u hits (Total: %u, Misses: %u)\n",
+                in_gameplay ? "Gameplay 30 FPS" : "Menus 60 FPS",
                 fps, avg_ms, min_ms, max_ms, cpu_ms, gpu_ms, in_ms,
                 s_perf_drops_33ms,
                 hits_delta, g_gla_pool_hits, g_gla_pool_misses);
