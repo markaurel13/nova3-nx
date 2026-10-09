@@ -47,12 +47,14 @@ typedef void* (*nova3_get_player_component_fn)(void *level);
 typedef void (*nova3_weapon_end_rush_fn)(void *weapon);
 typedef void (*nova3_weapon_manager_aim_fn)(void *manager);
 typedef void (*nova3_weapon_manager_unaim_fn)(void *manager);
+typedef int (*nova3_weapon_manager_set_next_weapon_fn)(void *manager, int unused);
 
 static nova3_level_get_fn nova3_ads_level_get = NULL;
 static nova3_get_player_component_fn nova3_ads_get_player_component = NULL;
 static nova3_weapon_end_rush_fn nova3_weapon_end_rush = NULL;
 static nova3_weapon_manager_aim_fn nova3_weapon_manager_aim = NULL;
 static nova3_weapon_manager_unaim_fn nova3_ads_weapon_manager_unaim = NULL;
+static nova3_weapon_manager_set_next_weapon_fn nova3_weapon_manager_set_next_weapon = NULL;
 
 static void *nova3_ads_current_weapon(void **manager_output) {
     if (manager_output) *manager_output = NULL;
@@ -81,18 +83,14 @@ static int nova3_ads_shoulder_held = 0;
 static int nova3_sprint_active = 0;
 static int nova3_sprint_cancelled_refresh_move = 0;
 
-static void nova3_ads_hold_begin(void) {
-    nova3_ads_shoulder_held = 1;
-
+static void nova3_cancel_sprint_if_active(void) {
     void *manager = NULL;
     void *weapon = nova3_ads_current_weapon(&manager);
-    if (!weapon || !manager) return;
 
-    // If currently sprinting/rushing, cancel sprint and rush effects immediately
-    int was_sprinting = nova3_sprint_active || (*((uint8_t *)weapon + 0x64U) != 0U);
-    nova3_sprint_active = 0; // Cancel sprint immediately!
+    int was_sprinting = nova3_sprint_active || (weapon && (*((uint8_t *)weapon + 0x64U) != 0U));
+    nova3_sprint_active = 0;
 
-    if (*((uint8_t *)weapon + 0x64U) != 0U) {
+    if (weapon && (*((uint8_t *)weapon + 0x64U) != 0U)) {
         if (nova3_weapon_end_rush)
             nova3_weapon_end_rush(weapon);
     }
@@ -100,12 +98,34 @@ static void nova3_ads_hold_begin(void) {
     void *level = nova3_ads_level_get ? nova3_ads_level_get() : NULL;
     uint8_t *player = level && nova3_ads_get_player_component ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
     if (player) {
-        player[0x45U] = 0; // Clear sprint controller state
+        player[0x45U] = 0;
     }
 
     if (was_sprinting) {
         nova3_sprint_cancelled_refresh_move = 1;
     }
+}
+
+static void nova3_change_weapon(void *env, void *gl2jni_class) {
+    nova3_cancel_sprint_if_active();
+
+    void *manager = NULL;
+    (void)nova3_ads_current_weapon(&manager);
+    if (manager && nova3_weapon_manager_set_next_weapon) {
+        nova3_weapon_manager_set_next_weapon(manager, 0);
+    } else if (nova_key_down) {
+        nova_key_down(env, gl2jni_class, 109);
+    }
+}
+
+static void nova3_ads_hold_begin(void) {
+    nova3_ads_shoulder_held = 1;
+
+    void *manager = NULL;
+    void *weapon = nova3_ads_current_weapon(&manager);
+    if (!weapon || !manager) return;
+
+    nova3_cancel_sprint_if_active();
 
     // Directly engage aim in weapon manager
     int already_aimed = *((uint8_t *)weapon + 0x61U) != 0U;
@@ -293,6 +313,7 @@ void port_run(void) {
     nova3_weapon_end_rush = (nova3_weapon_end_rush_fn)(so_mod.load_virtbase + 0x0016B6ECU);
     nova3_weapon_manager_aim = (nova3_weapon_manager_aim_fn)(so_mod.load_virtbase + 0x00585FF0U);
     nova3_ads_weapon_manager_unaim = (nova3_weapon_manager_unaim_fn)(so_mod.load_virtbase + 0x00585FC8U);
+    nova3_weapon_manager_set_next_weapon = (nova3_weapon_manager_set_next_weapon_fn)(so_mod.load_virtbase + 0x0058F7A0U);
 
 
 
@@ -453,14 +474,14 @@ void port_run(void) {
             }
         }
         
-        // Standard Buttons (process buttons such as ZL before stick movement updates)
+        // Standard Buttons (process buttons such as ZL and Weapon Change before stick movement updates)
         if (nova_key_down) {
             if (keys_down & HidNpadButton_A) nova_key_down(env, gl2jni_class, 23);
             if (keys_down & HidNpadButton_B) nova_key_down(env, gl2jni_class, 227);
             if (keys_down & HidNpadButton_Y) nova_key_down(env, gl2jni_class, 100);
 
             if (keys_down & HidNpadButton_Plus) nova_key_down(env, gl2jni_class, 108); // START
-            if (keys_down & HidNpadButton_Minus) nova_key_down(env, gl2jni_class, 109); // SELECT
+            if (keys_down & HidNpadButton_Minus) nova3_change_weapon(env, gl2jni_class); // SELECT
             if (keys_down & HidNpadButton_Up) nova_key_down(env, gl2jni_class, 19);
             if (keys_down & HidNpadButton_Down) nova_key_down(env, gl2jni_class, 20);
             if (keys_down & HidNpadButton_Left) nova_key_down(env, gl2jni_class, 21);
@@ -469,7 +490,7 @@ void port_run(void) {
             if (keys_down & HidNpadButton_R) nova_key_down(env, gl2jni_class, 227); // R1 (Shoot)
             if (keys_down & HidNpadButton_ZL) nova3_ads_hold_begin(); // L2 (ADS / Aim)
             if (keys_down & HidNpadButton_ZR) nova_key_down(env, gl2jni_class, 103); // R2
-            if (keys_down & HidNpadButton_StickR) nova_key_down(env, gl2jni_class, 109); // R3 (Change Weapon via SELECT)
+            if (keys_down & HidNpadButton_StickR) nova3_change_weapon(env, gl2jni_class); // R3 (Change Weapon)
         }
         if (nova_key_up) {
             if (keys_up & HidNpadButton_A) nova_key_up(env, gl2jni_class, 23);
