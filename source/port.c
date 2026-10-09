@@ -2,7 +2,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <malloc.h>
-#include <math.h>
 #include <switch.h>
 
 #include "rt_boot.h" // Provides port_load and port_run declarations
@@ -82,8 +81,7 @@ static void *nova3_ads_current_weapon(void **manager_output) {
 
 static int nova3_ads_shoulder_held = 0;
 static int nova3_sprint_active = 0;
-static float nova3_active_move_fwd = 0.0f;
-static float nova3_active_move_strafe = 0.0f;
+static int nova3_sprint_cancelled_refresh_move = 0;
 
 static void nova3_cancel_sprint_if_active(void) {
     void *manager = NULL;
@@ -101,10 +99,10 @@ static void nova3_cancel_sprint_if_active(void) {
     uint8_t *player = level && nova3_ads_get_player_component ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
     if (player) {
         player[0x45U] = 0;
-        if (was_sprinting) {
-            *(float *)(player + 28) = nova3_active_move_fwd;
-            *(float *)(player + 36) = nova3_active_move_strafe;
-        }
+    }
+
+    if (was_sprinting) {
+        nova3_sprint_cancelled_refresh_move = 1;
     }
 }
 
@@ -420,25 +418,11 @@ void port_run(void) {
         rt_pad_read(&pad, sticks);
 
         uint64_t now_ms = (uint64_t)(armTicksToNs(armGetSystemTick()) / 1000000ULL);
-        u64 keys_held = padGetButtons(&pad);
 
-        // Movement intent with hysteresis (0.45f engage, 0.25f release to prevent stick drift)
-        if (sticks[1] > 0.45f || (keys_held & HidNpadButton_Up)) {
-            nova3_active_move_fwd = 1.0f;
-        } else if (sticks[1] < -0.45f || (keys_held & HidNpadButton_Down)) {
-            nova3_active_move_fwd = -1.0f;
-        } else if (fabsf(sticks[1]) < 0.25f && !(keys_held & (HidNpadButton_Up | HidNpadButton_Down))) {
-            nova3_active_move_fwd = 0.0f;
-        }
-
-        if (sticks[0] > 0.45f || (keys_held & HidNpadButton_Right)) {
-            nova3_active_move_strafe = 1.0f;
-        } else if (sticks[0] < -0.45f || (keys_held & HidNpadButton_Left)) {
-            nova3_active_move_strafe = -1.0f;
-        } else if (fabsf(sticks[0]) < 0.25f && !(keys_held & (HidNpadButton_Right | HidNpadButton_Left))) {
-            nova3_active_move_strafe = 0.0f;
-        }
-
+        // Convert Left Stick to D-PAD (Gameloft ignored Left Joystick native binding)
+        int horizontal_key = sticks[0] > 0.5f ? 22 : (sticks[0] < -0.5f ? 21 : 0);
+        int vertical_key = sticks[1] > 0.5f ? 19 : (sticks[1] < -0.5f ? 20 : 0);
+        
         // Unified Sprint Controller: activates on double-flick forward OR L3 click
         static int stick_was_forward = 0;
         static uint64_t forward_release_ms = 0;
@@ -470,12 +454,27 @@ void port_run(void) {
 
         // Cancel sprint if stick is released (stopped moving forward) or aiming (ZL)
         if (nova3_sprint_active) {
-            if (sticks[1] <= 0.25f || nova3_ads_shoulder_held) {
-                nova3_cancel_sprint_if_active();
+            if (sticks[1] <= 0.2f || nova3_ads_shoulder_held) {
+                nova3_sprint_active = 0;
             }
         }
 
-        // Standard Buttons (process buttons such as ZL and Weapon Change)
+        if (nova3_ads_level_get && nova3_ads_get_player_component) {
+            void *level = nova3_ads_level_get();
+            uint8_t *player = level ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
+            if (player) {
+                if (nova3_sprint_active) {
+                    player[0x32cU] = 1; // Ensure rush capability is enabled on this level
+                    player[0x45U] = 1;  // Activate controller rush state
+                } else {
+                    player[0x45U] = 0;  // Deactivate controller rush state
+                }
+            } else {
+                nova3_sprint_active = 0;
+            }
+        }
+        
+        // Standard Buttons (process buttons such as ZL and Weapon Change before stick movement updates)
         if (nova_key_down) {
             if (keys_down & HidNpadButton_A) nova_key_down(env, gl2jni_class, 23);
             if (keys_down & HidNpadButton_B) nova_key_down(env, gl2jni_class, 227);
@@ -511,29 +510,19 @@ void port_run(void) {
             if (keys_up & HidNpadButton_StickR) nova_key_up(env, gl2jni_class, 109); // R3
         }
 
-        // Apply PlayerComponent velocity vectors continuously right after button actions
-        if (nova3_ads_level_get && nova3_ads_get_player_component) {
-            void *level = nova3_ads_level_get();
-            uint8_t *player = level ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
-            if (player) {
-                if (nova3_sprint_active) {
-                    player[0x32cU] = 1; // Ensure rush capability is enabled on this level
-                    player[0x45U] = 1;  // Activate controller rush state
-                } else {
-                    player[0x45U] = 0;  // Deactivate controller rush state
-                    *(float *)(player + 28) = nova3_active_move_fwd;
-                    *(float *)(player + 36) = nova3_active_move_strafe;
-                }
-            } else {
-                nova3_sprint_active = 0;
-            }
-        }
-
-        // Virtual D-PAD for UI and menus
-        int horizontal_key = sticks[0] > 0.5f ? 22 : (sticks[0] < -0.5f ? 21 : 0);
-        int vertical_key = sticks[1] > 0.5f ? 19 : (sticks[1] < -0.5f ? 20 : 0);
         static int left_horizontal_key = 0;
         static int left_vertical_key = 0;
+
+        // When sprint is seamlessly cancelled by aiming (ZL), Gameloft resets
+        // internal movement vectors. Re-trigger active movement keys so the character
+        // transitions immediately into walking while aiming without requiring stick release.
+        if (nova3_sprint_cancelled_refresh_move) {
+            nova3_sprint_cancelled_refresh_move = 0;
+            if (left_vertical_key && nova_key_up) nova_key_up(env, gl2jni_class, left_vertical_key);
+            if (left_horizontal_key && nova_key_up) nova_key_up(env, gl2jni_class, left_horizontal_key);
+            left_vertical_key = 0;
+            left_horizontal_key = 0;
+        }
 
         if (horizontal_key != left_horizontal_key) {
             if (left_horizontal_key && nova_key_up) nova_key_up(env, gl2jni_class, left_horizontal_key);
