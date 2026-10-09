@@ -369,23 +369,36 @@ void port_run(void) {
         int horizontal_key = sticks[0] > 0.5f ? 22 : (sticks[0] < -0.5f ? 21 : 0);
         int vertical_key = sticks[1] > 0.5f ? 19 : (sticks[1] < -0.5f ? 20 : 0);
         
-        static int sprint_macro_frame = 0;
+        // Native L3 Sprint Controller (direct hook into Gameloft player rush state)
+        static int l3_sprint_active = 0;
         if (keys_down & HidNpadButton_StickL) {
-            sprint_macro_frame = 1;
+            if (sticks[1] > 0.2f) {
+                l3_sprint_active = !l3_sprint_active;
+            } else {
+                l3_sprint_active = 0;
+            }
         }
 
-        if (sprint_macro_frame > 0) {
-            if (sprint_macro_frame >= 1 && sprint_macro_frame < 4) {
-                vertical_key = 0;
-            } else if (sprint_macro_frame >= 4 && sprint_macro_frame < 8) {
-                vertical_key = 19;
-            } else if (sprint_macro_frame >= 8 && sprint_macro_frame < 12) {
-                vertical_key = 0;
-            } else if (sprint_macro_frame >= 12 && sprint_macro_frame < 16) {
-                vertical_key = 19;
+        // Cancel sprint if stick is released (stopped moving forward) or aiming (ZL)
+        if (l3_sprint_active) {
+            if (sticks[1] <= 0.2f || nova3_ads_shoulder_held) {
+                l3_sprint_active = 0;
             }
-            sprint_macro_frame++;
-            if (sprint_macro_frame >= 16) sprint_macro_frame = 0;
+        }
+
+        if (nova3_ads_level_get && nova3_ads_get_player_component) {
+            void *level = nova3_ads_level_get();
+            uint8_t *player = level ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
+            if (player) {
+                if (l3_sprint_active) {
+                    player[0x32cU] = 1; // Ensure rush capability is enabled on this level
+                    player[0x45U] = 1;  // Activate controller rush state
+                } else {
+                    player[0x45U] = 0;  // Deactivate controller rush state
+                }
+            } else {
+                l3_sprint_active = 0;
+            }
         }
         
         static int left_horizontal_key = 0;
