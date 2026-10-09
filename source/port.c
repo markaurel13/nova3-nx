@@ -516,16 +516,6 @@ void port_run(void) {
         }
 
         int in_gameplay = (nova3_ads_level_get && nova3_ads_level_get() != NULL);
-
-        // Software frame pacing: lock frames to consistent timing
-        // Gameplay targets 33333 us (30 FPS), Menus target 16666 us (60 FPS)
-        uint64_t target_frame_us = in_gameplay ? 33333ULL : 16666ULL;
-        uint64_t elapsed_us = armTicksToNs(armGetSystemTick() - t_start) / 1000ULL;
-        if (elapsed_us < target_frame_us) {
-            uint64_t sleep_ns = (target_frame_us - elapsed_us) * 1000ULL;
-            svcSleepThread(sleep_ns);
-        }
-
         report_perf_metrics(in_gameplay, total_us, cpu_us, gpu_us, in_us);
     }
 
