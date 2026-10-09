@@ -1,0 +1,45 @@
+# Build outputs
+/build/
+/launcher/build/
+/launcher/romfs/
+*.elf
+*.nsp
+*.nro
+*.nacp
+*.npdm
+*.nso
+*.build
+*.zip
+*.zip.*
+
+# Local portlibs and libraries (prebuilt/external)
+/portlibs32/
+/libnx32/
+
+# Reference repository
+/referencia_vita/
+
+# Local game files and assets (never commit copyrighted files)
+*.apk
+*.so
+*.gla
+/sd/
+/data/
+/debug/
+com.gameloft.*/
+
+# Scratch & development scripts
+tools/scripts/
+*.txt
+*.log
+debug.log
+launcher/debug.log
+
+# OS & Editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+*~
+.vscode/
+.idea/
