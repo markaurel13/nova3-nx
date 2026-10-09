@@ -60,22 +60,32 @@ static void lower(char *s) {
     *s = (char)tolower((unsigned char)*s);
 }
 
-/* out: `real` with repeated '/' collapsed and "/." removed, lower case.
- * 0 if it has ".." or does not fit. */
+/* out: `real` with repeated '/' collapsed, "/." and "/../" resolved, lower case.
+ * 0 if it does not fit. */
 static int normalize(const char *real, char *out, size_t cap) {
+  if (!real || !out || cap < 2)
+    return 0;
   size_t n = 0;
-  for (const char *p = real; *p; p++) {
-    if (*p == '/' && n && out[n - 1] == '/')
-      continue;
-    if (*p == '/' && p[1] == '.' && (p[2] == '/' || !p[2])) {
+  for (const char *p = real; *p; ) {
+    if (*p == '/' && n && out[n - 1] == '/') {
       p++;
       continue;
     }
-    if (*p == '.' && p[1] == '.' && n && out[n - 1] == '/')
-      return 0;
+    if (*p == '/' && p[1] == '.' && (p[2] == '/' || !p[2])) {
+      p += 2;
+      continue;
+    }
+    if (*p == '/' && p[1] == '.' && p[2] == '.' && (p[3] == '/' || !p[3])) {
+      p += 3;
+      if (n > 0 && out[n - 1] == '/')
+        n--;
+      while (n > 0 && out[n - 1] != '/')
+        n--;
+      continue;
+    }
     if (n + 1 >= cap)
       return 0;
-    out[n++] = *p;
+    out[n++] = *p++;
   }
   while (n > 1 && out[n - 1] == '/')
     n--;

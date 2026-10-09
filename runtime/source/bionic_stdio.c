@@ -181,9 +181,9 @@ static FILE *apk_fopen(void) {
 }
 
 /* ----------------------------------------------------------- open/close */
-#define GLA_POOL_MAX 64
-#define GLA_PER_FILE_MAX 8
-#define GLA_ACTIVE_MAX 128
+#define GLA_POOL_MAX 128
+#define GLA_PER_FILE_MAX 16
+#define GLA_ACTIVE_MAX 256
 
 typedef struct {
   FILE *fp;

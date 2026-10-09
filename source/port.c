@@ -165,16 +165,16 @@ static void report_perf_metrics(int in_gameplay, uint64_t total_us, uint64_t cpu
     if (total_us > 35000ULL) s_drops++;
 
     if (s_frames >= 120) {
-        float avg_ms = (float)(s_total_us / 1000ULL) / (float)s_frames;
-        float fps = (avg_ms > 0.001f) ? (1000.0f / avg_ms) : 0.0f;
-        float min_ms = (float)(s_min_us / 1000ULL);
-        float max_ms = (float)(s_max_us / 1000ULL);
-        float cpu_ms = (float)(s_cpu_us / 1000ULL) / (float)s_frames;
-        float gpu_ms = (float)(s_gpu_us / 1000ULL) / (float)s_frames;
-        float in_ms  = (float)(s_in_us / 1000ULL) / (float)s_frames;
+        uint32_t avg_ms = (uint32_t)((s_total_us / 1000ULL) / (uint64_t)s_frames);
+        uint32_t min_ms = (uint32_t)(s_min_us / 1000ULL);
+        uint32_t max_ms = (uint32_t)(s_max_us / 1000ULL);
+        uint32_t cpu_ms = (uint32_t)((s_cpu_us / 1000ULL) / (uint64_t)s_frames);
+        uint32_t gpu_ms = (uint32_t)((s_gpu_us / 1000ULL) / (uint64_t)s_frames);
+        uint32_t in_ms  = (uint32_t)((s_in_us / 1000ULL) / (uint64_t)s_frames);
+        uint32_t fps    = (avg_ms > 0) ? (1000 / avg_ms) : 0;
         uint32_t hits_delta = g_gla_pool_hits - s_last_hits;
 
-        debugPrintf("[Perf (%s)] FPS: %.1f | Frame: avg %.2f ms (min %.2f, max %.2f) | CPU: %.2f ms, GPU: %.2f ms, In: %.2f ms | Drops: %u (>33ms) | Cache: +%u (Total: %u, Miss: %u)\n",
+        debugPrintf("[Perf (%s)] FPS: %u | Frame: avg %u ms (min %u, max %u) | CPU: %u ms, GPU: %u ms, In: %u ms | Drops: %u (>33ms) | Cache: +%u (Total: %u, Miss: %u)\n",
             in_gameplay ? "Gameplay" : "Menus",
             fps, avg_ms, min_ms, max_ms, cpu_ms, gpu_ms, in_ms,
             s_drops, hits_delta, g_gla_pool_hits, g_gla_pool_misses);
@@ -516,6 +516,16 @@ void port_run(void) {
         }
 
         int in_gameplay = (nova3_ads_level_get && nova3_ads_level_get() != NULL);
+
+        // Software frame pacing: lock frames to consistent timing
+        // Gameplay targets 33333 us (30 FPS), Menus target 16666 us (60 FPS)
+        uint64_t target_frame_us = in_gameplay ? 33333ULL : 16666ULL;
+        uint64_t elapsed_us = armTicksToNs(armGetSystemTick() - t_start) / 1000ULL;
+        if (elapsed_us < target_frame_us) {
+            uint64_t sleep_ns = (target_frame_us - elapsed_us) * 1000ULL;
+            svcSleepThread(sleep_ns);
+        }
+
         report_perf_metrics(in_gameplay, total_us, cpu_us, gpu_us, in_us);
     }
 
@@ -531,6 +541,8 @@ const RtSetupPlan port_setup_plan = {
 
 void dcr_config_load(void) {}
 
+extern int dcr_dircache_missing(const char *real);
+
 const char *port_path_fixup(const char *real, char *out, size_t cap) {
     if (!real || !out || cap == 0) return real;
     const char *data_prefix = "sdmc:/switch/nova3/data/";
@@ -541,8 +553,10 @@ const char *port_path_fixup(const char *real, char *out, size_t cap) {
     if (strncmp(real, data_prefix, data_len) == 0 && strncmp(real, files_prefix, files_len) != 0) {
         const char *sub = real + data_len;
         while (*sub == '/') sub++;
+        if (strstr(sub, "..")) return real; // Fast skip relative traversals
         char candidate[512];
         snprintf(candidate, sizeof(candidate), "sdmc:/switch/nova3/data/files/%s", sub);
+        if (dcr_dircache_missing(candidate)) return real; // Fast answer from RAM
         if (access(candidate, F_OK) == 0) {
             snprintf(out, cap, "%s", candidate);
             return out;
