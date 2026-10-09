@@ -477,8 +477,14 @@ void port_run(void) {
         // Standard Buttons (process buttons such as ZL and Weapon Change before stick movement updates)
         if (nova_key_down) {
             if (keys_down & HidNpadButton_A) nova_key_down(env, gl2jni_class, 23);
-            if (keys_down & HidNpadButton_B) nova_key_down(env, gl2jni_class, 227);
-            if (keys_down & HidNpadButton_Y) nova_key_down(env, gl2jni_class, 100);
+            if (keys_down & HidNpadButton_B) {
+                nova3_cancel_sprint_if_active(); // Throw grenade (B) cancels sprint
+                nova_key_down(env, gl2jni_class, 227);
+            }
+            if (keys_down & HidNpadButton_Y) {
+                nova3_cancel_sprint_if_active(); // Ability (Y) cancels sprint
+                nova_key_down(env, gl2jni_class, 100);
+            }
 
             if (keys_down & HidNpadButton_Plus) nova_key_down(env, gl2jni_class, 108); // START
             if (keys_down & HidNpadButton_Minus) nova3_change_weapon(env, gl2jni_class); // SELECT
@@ -486,10 +492,19 @@ void port_run(void) {
             if (keys_down & HidNpadButton_Down) nova_key_down(env, gl2jni_class, 20);
             if (keys_down & HidNpadButton_Left) nova_key_down(env, gl2jni_class, 21);
             if (keys_down & HidNpadButton_Right) nova_key_down(env, gl2jni_class, 22);
-            if (keys_down & HidNpadButton_L) nova_key_down(env, gl2jni_class, 100);
-            if (keys_down & HidNpadButton_R) nova_key_down(env, gl2jni_class, 227); // R1 (Shoot)
+            if (keys_down & HidNpadButton_L) {
+                nova3_cancel_sprint_if_active(); // Ability (L) cancels sprint
+                nova_key_down(env, gl2jni_class, 100);
+            }
+            if (keys_down & HidNpadButton_R) {
+                nova3_cancel_sprint_if_active(); // Throw grenade (R) cancels sprint
+                nova_key_down(env, gl2jni_class, 227);
+            }
             if (keys_down & HidNpadButton_ZL) nova3_ads_hold_begin(); // L2 (ADS / Aim)
-            if (keys_down & HidNpadButton_ZR) nova_key_down(env, gl2jni_class, 103); // R2
+            if (keys_down & HidNpadButton_ZR) {
+                nova3_cancel_sprint_if_active(); // Hip fire (ZR) cancels sprint
+                nova_key_down(env, gl2jni_class, 103); // R2
+            }
             if (keys_down & HidNpadButton_StickR) nova3_change_weapon(env, gl2jni_class); // R3 (Change Weapon)
         }
         if (nova_key_up) {
@@ -549,6 +564,7 @@ void port_run(void) {
             if (nova3_ads_shoulder_held) {
                 nova3_ads_hold_end(); // Drop aim when reload is requested
             }
+            nova3_cancel_sprint_if_active(); // Reload cancels sprint
             reload_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
         }
 
