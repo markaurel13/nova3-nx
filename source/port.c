@@ -365,94 +365,27 @@ void port_run(void) {
 
         uint64_t now_ms = (uint64_t)(armTicksToNs(armGetSystemTick()) / 1000000ULL);
 
-        // Convert Left Stick to D-PAD with Consistent Double-Flick Sprint Controller
-        float stick_lx = sticks[0];
-        float stick_ly = sticks[1]; // Positive = UP (forward), Negative = DOWN (backward)
-
-        // Anti-snapback: when releasing stick forward, suppress accidental backward recoil
-        static uint64_t forward_release_ms = 0;
-        if (stick_ly < -0.2f && (now_ms - forward_release_ms < 140)) {
-            stick_ly = 0.0f;
-        }
-
-        // Horizontal deadzone with hysteresis (prevents Joy-Con stick drift moving on its own)
-        static int current_h_key = 0;
-        int horizontal_key = 0;
-        if (current_h_key == 22) {
-            horizontal_key = (stick_lx > 0.40f) ? 22 : 0;
-        } else if (current_h_key == 21) {
-            horizontal_key = (stick_lx < -0.40f) ? 21 : 0;
-        } else {
-            horizontal_key = (stick_lx > 0.55f) ? 22 : (stick_lx < -0.55f ? 21 : 0);
-        }
-        current_h_key = horizontal_key;
-
-        // Vertical walk deadzone with hysteresis
-        static int current_v_walk = 0;
-        int vertical_walk = 0;
-        if (current_v_walk == 19) {
-            vertical_walk = (stick_ly > 0.40f) ? 19 : 0;
-        } else if (current_v_walk == 20) {
-            vertical_walk = (stick_ly < -0.40f) ? 20 : 0;
-        } else {
-            vertical_walk = (stick_ly > 0.55f) ? 19 : (stick_ly < -0.55f ? 20 : 0);
-        }
-        current_v_walk = vertical_walk;
-
-        // Sprint detection: tracks double-flick timing
-        static uint64_t sprint_start_ms = 0;
-        static int stick_forward_latched = 0;
-        static int is_sprinting = 0;
-
-        const float PUSH_THRESH = 0.65f;
-        const float RELEASE_THRESH = 0.40f;
-
-        if (!stick_forward_latched && stick_ly >= PUSH_THRESH) {
-            stick_forward_latched = 1;
-            uint64_t idle_time = now_ms - forward_release_ms;
-            // Double-flick forward: stick was pushed forward, released, and pushed again within 380 ms
-            if (idle_time > 30 && idle_time < 380) {
-                is_sprinting = 1;
-                sprint_start_ms = now_ms;
-                forward_release_ms = 0;
-            }
-        } else if (stick_forward_latched && stick_ly < RELEASE_THRESH) {
-            stick_forward_latched = 0;
-            forward_release_ms = now_ms;
-            if (is_sprinting) {
-                is_sprinting = 0;
-                sprint_start_ms = 0;
-            }
-        }
-
-        // L3 (StickL) also triggers sprint immediately
+        // Convert Left Stick to D-PAD (Gameloft ignored Left Joystick native binding)
+        int horizontal_key = sticks[0] > 0.5f ? 22 : (sticks[0] < -0.5f ? 21 : 0);
+        int vertical_key = sticks[1] > 0.5f ? 19 : (sticks[1] < -0.5f ? 20 : 0);
+        
+        static int sprint_macro_frame = 0;
         if (keys_down & HidNpadButton_StickL) {
-            is_sprinting = 1;
-            sprint_start_ms = now_ms;
+            sprint_macro_frame = 1;
         }
 
-        int vertical_key = 0;
-        if (is_sprinting) {
-            uint64_t elapsed = now_ms - sprint_start_ms;
-            // Synthesize clean double-tap pulse Gameloft engine expects:
-            // 0..50ms: Key 19 DOWN
-            // 50..100ms: Key 19 UP
-            // 100ms+: Key 19 HELD DOWN continuously for sprinting
-            if (elapsed < 50) {
-                vertical_key = 19;
-            } else if (elapsed < 100) {
+        if (sprint_macro_frame > 0) {
+            if (sprint_macro_frame >= 1 && sprint_macro_frame < 4) {
                 vertical_key = 0;
-            } else {
+            } else if (sprint_macro_frame >= 4 && sprint_macro_frame < 8) {
+                vertical_key = 19;
+            } else if (sprint_macro_frame >= 8 && sprint_macro_frame < 12) {
+                vertical_key = 0;
+            } else if (sprint_macro_frame >= 12 && sprint_macro_frame < 16) {
                 vertical_key = 19;
             }
-
-            // Stop sprinting when stick is released
-            if (stick_ly < RELEASE_THRESH && elapsed >= 100) {
-                is_sprinting = 0;
-                vertical_key = 0;
-            }
-        } else {
-            vertical_key = vertical_walk;
+            sprint_macro_frame++;
+            if (sprint_macro_frame >= 16) sprint_macro_frame = 0;
         }
         
         static int left_horizontal_key = 0;
