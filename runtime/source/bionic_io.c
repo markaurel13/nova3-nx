@@ -1131,12 +1131,11 @@ int b_ftruncate(int fd, b_off_t len) {
 }
 
 int b_fsync(int fd) {
-  if (fake_get(fd) || fd <= 2)
-    return 0;
-  int r = fsync(fd);
-  if (r < 0)
-    b_fix_errno();
-  return r;
+  /* On Nintendo Switch, physical fsync to FAT32 SD card blocks the main thread
+   * for 150-300 ms causing noticeable stutter on "Progress Saved". Return 0 and
+   * allow newlib's normal buffers and fclose to commit naturally without stalling. */
+  (void)fd;
+  return 0;
 }
 
 int b_flock(int fd, int op) { return 0; }
