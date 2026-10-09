@@ -98,6 +98,7 @@ static int *nova_power_status = NULL;
 static uint8_t *nova_power_status_ba = NULL;
 static uint8_t *nova_moga_pro = NULL;
 static uint8_t *nova_is_moga = NULL;
+static uint8_t *nova_rush_by_double_touch = NULL;
 
 static uintptr_t required_symbol(const char *name) {
     uintptr_t address = so_try_find_addr_rx(&so_mod, name);
@@ -265,7 +266,10 @@ void port_run(void) {
     if (nova_power_status) *nova_power_status = 1;
     if (nova_power_status_ba) *nova_power_status_ba = 1;
     if (nova_moga_pro) *nova_moga_pro = 1;
-        if (nova_is_moga) *nova_is_moga = 1;
+    if (nova_is_moga) *nova_is_moga = 1;
+
+    nova_rush_by_double_touch = (uint8_t *)(so_mod.load_virtbase + 0x00D9175CU);
+    if (nova_rush_by_double_touch) *nova_rush_by_double_touch = 0;
 
 
 
@@ -360,6 +364,7 @@ void port_run(void) {
         if (nova_power_status_ba) *nova_power_status_ba = 1;
         if (nova_moga_pro) *nova_moga_pro = 1;
         if (nova_is_moga) *nova_is_moga = 1;
+        if (nova_rush_by_double_touch) *nova_rush_by_double_touch = 0;
 
         rt_pad_read(&pad, sticks);
 
