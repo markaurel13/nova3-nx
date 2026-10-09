@@ -32,7 +32,7 @@
  * closed or killed; 0 only fflush()es. Every port: 1 (sonic's; the others
  * only fflush()ed before the merge). */
 #ifndef RT_LOG_FSYNC
-#define RT_LOG_FSYNC 1
+#define RT_LOG_FSYNC 0
 #endif
 
 static Mutex g_log_lock;

@@ -149,9 +149,9 @@ void port_run(void) {
 
     printf("[port] Starting N.O.V.A. 3 init sequence...\n");
 
-    // Force JNI logging to see what methods Gameloft tries to call
+    // JNI call logging disabled during gameplay to eliminate MicroSD log overhead
     #include "rt_cfg.h"
-    ((RtConfig*)rt_config())->log_jni = 1;
+    ((RtConfig*)rt_config())->log_jni = 0;
 
     // Initialize the android32 fake JNI subsystem
     jni_init();
