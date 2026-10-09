@@ -1,10 +1,23 @@
-# N.O.V.A. 3 (Near Orbit Vanguard Alliance) - Nintendo Switch Port
+<div align="center">
 
-[![Platform](https://img.shields.io/badge/Platform-Nintendo%20Switch-e60012.svg)](https://www.nintendo.com/switch/)
-[![Arch](https://img.shields.io/badge/Architecture-ARMv7--A%20%28AArch32%29-blue.svg)]()
-[![Status](https://img.shields.io/badge/Status-Playable-brightgreen.svg)]()
-[![Graphics](https://img.shields.io/badge/Graphics-OpenGL%20ES%202.0%20%28Mesa%20Nouveau%29-orange.svg)]()
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<img src="launcher/icon.jpg" alt="N.O.V.A. 3" width="160">
+
+# nova3-nx
+
+**N.O.V.A. 3: Near Orbit Vanguard Alliance for Nintendo Switch**
+
+An unofficial Nintendo Switch native wrapper for the 32-bit Android release of  
+**N.O.V.A. 3: Near Orbit Vanguard Alliance**.
+
+[![Nintendo Switch](https://img.shields.io/badge/Nintendo_Switch-Homebrew-E60012?style=for-the-badge&logo=nintendoswitch&logoColor=white)](#)
+[![Status](https://img.shields.io/badge/Status-Playable-brightgreen?style=for-the-badge)](#)
+[![Architecture](https://img.shields.io/badge/AArch32-32--bit_Native-6A1B9A?style=for-the-badge)](#)
+[![Graphics](https://img.shields.io/badge/Graphics-OpenGL_ES_2.0-FF6F00?style=for-the-badge&logo=opengl&logoColor=white)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+
+</div>
+
+---
 
 A native Nintendo Switch port / wrapper of Gameloft's sci-fi FPS classic **N.O.V.A. 3: Near Orbit Vanguard Alliance** (Android version 1.0.8e), built utilizing the **android32** execution runtime on Horizon OS.
 
