@@ -138,14 +138,12 @@ int port_load(const char *apk_path) {
 static int s_game_started = 0;
 
 int port_cpu_boost_set(int on) {
-    if (s_game_started) {
-        // ApmCpuBoostMode_FastLoad throttles GPU to 76 MHz! Keep GPU at full clock during gameplay.
-        return 0;
-    }
-    return -1;
+    (void)on;
+    return 0; // Disable FastLoad boost completely: prevents GPU throttling to 76MHz and saves battery
 }
 
 void port_run(void) {
+    appletSetCpuBoostMode(ApmCpuBoostMode_Normal);
     extern void so_patch(void);
     so_patch();
 
@@ -451,16 +449,16 @@ void port_run(void) {
         
         uint64_t t_swap = armGetSystemTick();
         
-        uint64_t total_ns = armTicksToNs(t_swap - t_start);
+        uint64_t total_us = armTicksToNs(t_swap - t_start) / 1000ULL;
         static uint64_t last_lag_log = 0;
-        if (total_ns > 100000000000000ULL && (frame_count - last_lag_log > 30)) { // > 100ms threshold, rate-limited
+        if (total_us > 100000ULL && (frame_count - last_lag_log > 30)) { // > 100ms threshold, rate-limited
             last_lag_log = frame_count;
             debugPrintf("[Profiler] Lag spike! Total: %llu ms | Inputs: %llu ms | Touch: %llu ms | Engine+GL: %llu ms | Swap/VSync: %llu ms\n",
-                total_ns / 1000000000000ULL,
-                armTicksToNs(t_inputs - t_start) / 1000000000000ULL,
-                armTicksToNs(t_touch - t_inputs) / 1000000000000ULL,
-                armTicksToNs(t_step - t_touch) / 1000000000000ULL,
-                armTicksToNs(t_swap - t_step) / 1000000000000ULL
+                total_us / 1000ULL,
+                (armTicksToNs(t_inputs - t_start) / 1000ULL) / 1000ULL,
+                (armTicksToNs(t_touch - t_inputs) / 1000ULL) / 1000ULL,
+                (armTicksToNs(t_step - t_touch) / 1000ULL) / 1000ULL,
+                (armTicksToNs(t_swap - t_step) / 1000ULL) / 1000ULL
             );
         }
 
@@ -468,42 +466,42 @@ void port_run(void) {
         extern uint32_t g_gla_pool_hits, g_gla_pool_misses;
         static uint64_t s_perf_start = 0;
         static uint32_t s_perf_frames = 0;
-        static uint64_t s_perf_total_frame_ns = 0;
-        static uint64_t s_perf_min_ns = UINT64_MAX;
-        static uint64_t s_perf_max_ns = 0;
-        static uint64_t s_perf_total_cpu_ns = 0;
-        static uint64_t s_perf_total_gpu_ns = 0;
-        static uint64_t s_perf_total_in_ns = 0;
+        static uint64_t s_perf_total_frame_us = 0;
+        static uint64_t s_perf_min_us = UINT64_MAX;
+        static uint64_t s_perf_max_us = 0;
+        static uint64_t s_perf_total_cpu_us = 0;
+        static uint64_t s_perf_total_gpu_us = 0;
+        static uint64_t s_perf_total_in_us = 0;
         static uint32_t s_perf_drops_18ms = 0;
         static uint32_t s_perf_drops_33ms = 0;
         static uint32_t s_last_hits = 0;
 
         if (s_perf_start == 0) s_perf_start = armGetSystemTick();
 
-        uint64_t cpu_ns = armTicksToNs(t_step - t_touch);
-        uint64_t gpu_ns = armTicksToNs(t_swap - t_step);
-        uint64_t in_ns  = armTicksToNs(t_touch - t_start);
+        uint64_t cpu_us = armTicksToNs(t_step - t_touch) / 1000ULL;
+        uint64_t gpu_us = armTicksToNs(t_swap - t_step) / 1000ULL;
+        uint64_t in_us  = armTicksToNs(t_touch - t_start) / 1000ULL;
 
         s_perf_frames++;
-        s_perf_total_frame_ns += total_ns;
-        s_perf_total_cpu_ns += cpu_ns;
-        s_perf_total_gpu_ns += gpu_ns;
-        s_perf_total_in_ns += in_ns;
+        s_perf_total_frame_us += total_us;
+        s_perf_total_cpu_us += cpu_us;
+        s_perf_total_gpu_us += gpu_us;
+        s_perf_total_in_us += in_us;
 
-        if (total_ns < s_perf_min_ns) s_perf_min_ns = total_ns;
-        if (total_ns > s_perf_max_ns) s_perf_max_ns = total_ns;
-        if (total_ns > 18000000000000ULL) s_perf_drops_18ms++;
-        if (total_ns > 33333333333333ULL) s_perf_drops_33ms++;
+        if (total_us < s_perf_min_us) s_perf_min_us = total_us;
+        if (total_us > s_perf_max_us) s_perf_max_us = total_us;
+        if (total_us > 18181ULL) s_perf_drops_18ms++;
+        if (total_us > 33333ULL) s_perf_drops_33ms++;
 
         if (s_perf_frames >= 120) {
             uint64_t now_tick = armGetSystemTick();
-            float avg_ms = (float)s_perf_total_frame_ns / (float)(s_perf_frames * 1000000000000.0f);
+            float avg_ms = (float)s_perf_total_frame_us / (float)(s_perf_frames * 1000.0f);
             float fps = (avg_ms > 0.001f) ? (1000.0f / avg_ms) : 0.0f;
-            float min_ms = (float)s_perf_min_ns / 1000000000000.0f;
-            float max_ms = (float)s_perf_max_ns / 1000000000000.0f;
-            float cpu_ms = (float)s_perf_total_cpu_ns / (float)(s_perf_frames * 1000000000000.0f);
-            float gpu_ms = (float)s_perf_total_gpu_ns / (float)(s_perf_frames * 1000000000000.0f);
-            float in_ms  = (float)s_perf_total_in_ns / (float)(s_perf_frames * 1000000000000.0f);
+            float min_ms = (float)s_perf_min_us / 1000.0f;
+            float max_ms = (float)s_perf_max_us / 1000.0f;
+            float cpu_ms = (float)s_perf_total_cpu_us / (float)(s_perf_frames * 1000.0f);
+            float gpu_ms = (float)s_perf_total_gpu_us / (float)(s_perf_frames * 1000.0f);
+            float in_ms  = (float)s_perf_total_in_us / (float)(s_perf_frames * 1000.0f);
             uint32_t hits_delta = g_gla_pool_hits - s_last_hits;
 
             debugPrintf("[Perf] FPS: %.1f | Frame: avg %.2f ms (min %.2f, max %.2f) | CPU: %.2f ms, GPU/VSync: %.2f ms, In: %.2f ms | Drops: %u (>18ms), %u (>33ms) | Asset Cache: +%u hits (Total: %u, Misses: %u)\n",
@@ -513,12 +511,12 @@ void port_run(void) {
 
             s_perf_start = now_tick;
             s_perf_frames = 0;
-            s_perf_total_frame_ns = 0;
-            s_perf_min_ns = UINT64_MAX;
-            s_perf_max_ns = 0;
-            s_perf_total_cpu_ns = 0;
-            s_perf_total_gpu_ns = 0;
-            s_perf_total_in_ns = 0;
+            s_perf_total_frame_us = 0;
+            s_perf_min_us = UINT64_MAX;
+            s_perf_max_us = 0;
+            s_perf_total_cpu_us = 0;
+            s_perf_total_gpu_us = 0;
+            s_perf_total_in_us = 0;
             s_perf_drops_18ms = 0;
             s_perf_drops_33ms = 0;
             s_last_hits = g_gla_pool_hits;
