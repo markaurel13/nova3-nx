@@ -453,14 +453,14 @@ void port_run(void) {
         
         uint64_t total_ns = armTicksToNs(t_swap - t_start);
         static uint64_t last_lag_log = 0;
-        if (total_ns > 100000000000ULL && (frame_count - last_lag_log > 30)) { // > 100ms threshold, rate-limited
+        if (total_ns > 100000000000000ULL && (frame_count - last_lag_log > 30)) { // > 100ms threshold, rate-limited
             last_lag_log = frame_count;
             debugPrintf("[Profiler] Lag spike! Total: %llu ms | Inputs: %llu ms | Touch: %llu ms | Engine+GL: %llu ms | Swap/VSync: %llu ms\n",
-                total_ns / 1000000000ULL,
-                armTicksToNs(t_inputs - t_start) / 1000000000ULL,
-                armTicksToNs(t_touch - t_inputs) / 1000000000ULL,
-                armTicksToNs(t_step - t_touch) / 1000000000ULL,
-                armTicksToNs(t_swap - t_step) / 1000000000ULL
+                total_ns / 1000000000000ULL,
+                armTicksToNs(t_inputs - t_start) / 1000000000000ULL,
+                armTicksToNs(t_touch - t_inputs) / 1000000000000ULL,
+                armTicksToNs(t_step - t_touch) / 1000000000000ULL,
+                armTicksToNs(t_swap - t_step) / 1000000000000ULL
             );
         }
 
@@ -492,21 +492,21 @@ void port_run(void) {
 
         if (total_ns < s_perf_min_ns) s_perf_min_ns = total_ns;
         if (total_ns > s_perf_max_ns) s_perf_max_ns = total_ns;
-        if (total_ns > 18000000000ULL) s_perf_drops_18ms++;
-        if (total_ns > 33333333333ULL) s_perf_drops_33ms++;
+        if (total_ns > 18000000000000ULL) s_perf_drops_18ms++;
+        if (total_ns > 33333333333333ULL) s_perf_drops_33ms++;
 
         if (s_perf_frames >= 120) {
             uint64_t now_tick = armGetSystemTick();
-            float avg_ms = (float)s_perf_total_frame_ns / (float)(s_perf_frames * 1000000000.0f);
+            float avg_ms = (float)s_perf_total_frame_ns / (float)(s_perf_frames * 1000000000000.0f);
             float fps = (avg_ms > 0.001f) ? (1000.0f / avg_ms) : 0.0f;
-            float min_ms = (float)s_perf_min_ns / 1000000000.0f;
-            float max_ms = (float)s_perf_max_ns / 1000000000.0f;
-            float cpu_ms = (float)s_perf_total_cpu_ns / (float)(s_perf_frames * 1000000000.0f);
-            float gpu_ms = (float)s_perf_total_gpu_ns / (float)(s_perf_frames * 1000000000.0f);
-            float in_ms  = (float)s_perf_total_in_ns / (float)(s_perf_frames * 1000000000.0f);
+            float min_ms = (float)s_perf_min_ns / 1000000000000.0f;
+            float max_ms = (float)s_perf_max_ns / 1000000000000.0f;
+            float cpu_ms = (float)s_perf_total_cpu_ns / (float)(s_perf_frames * 1000000000000.0f);
+            float gpu_ms = (float)s_perf_total_gpu_ns / (float)(s_perf_frames * 1000000000000.0f);
+            float in_ms  = (float)s_perf_total_in_ns / (float)(s_perf_frames * 1000000000000.0f);
             uint32_t hits_delta = g_gla_pool_hits - s_last_hits;
 
-            debugPrintf("[Perf] FPS: %.1f | Frame: avg %.2f ms (min %.2f, max %.2f) | CPU: %.2f ms, GPU/VSync: %.2f ms, In: %.2f ms | Drops: %u (>18ms), %u (>33ms) | GLA Cache: +%u hits (Total: %u, Misses: %u)\n",
+            debugPrintf("[Perf] FPS: %.1f | Frame: avg %.2f ms (min %.2f, max %.2f) | CPU: %.2f ms, GPU/VSync: %.2f ms, In: %.2f ms | Drops: %u (>18ms), %u (>33ms) | Asset Cache: +%u hits (Total: %u, Misses: %u)\n",
                 fps, avg_ms, min_ms, max_ms, cpu_ms, gpu_ms, in_ms,
                 s_perf_drops_18ms, s_perf_drops_33ms,
                 hits_delta, g_gla_pool_hits, g_gla_pool_misses);

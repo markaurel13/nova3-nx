@@ -181,9 +181,9 @@ static FILE *apk_fopen(void) {
 }
 
 /* ----------------------------------------------------------- open/close */
-#define GLA_POOL_MAX 32
+#define GLA_POOL_MAX 64
 #define GLA_PER_FILE_MAX 8
-#define GLA_ACTIVE_MAX 64
+#define GLA_ACTIVE_MAX 128
 
 typedef struct {
   FILE *fp;
@@ -226,7 +226,7 @@ void *b_fopen(const char *path, const char *mode) {
     }
   }
   int writes = strpbrk(mode, "wa+") != NULL;
-  int is_gla_ro = (!writes && (strstr(real, ".gla") != NULL));
+  int is_gla_ro = (!writes && (strstr(real, ".gla") != NULL || strstr(real, ".bdae") != NULL || strstr(real, ".etc") != NULL));
 
   if (is_gla_ro) {
     const char *base = gla_basename(real);

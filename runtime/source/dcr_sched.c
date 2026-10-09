@@ -79,7 +79,12 @@ Result dcr_thread_get_cores(Handle h, s32 *ideal, u64 *mask) {
  * as the route proven on hardware (Sonic, Asphalt 8). The flag and this
  * symbol ship together: the flag without it fails the link. */
 Result __wrap_svcSetThreadCoreMask(Handle h, s32 ideal, u64 mask);
-Result __wrap_svcSetThreadCoreMask(Handle h, s32 ideal, u64 mask) { return dcr_thread_set_cores(h, ideal, mask); }
+Result __wrap_svcSetThreadCoreMask(Handle h, s32 ideal, u64 mask) {
+  if (mask == 0x6ull && (ideal < 1 || ideal > 2)) {
+    ideal = dcr_sched_next_core();
+  }
+  return dcr_thread_set_cores(h, ideal, mask);
+}
 
 /* New guest threads start on cores 1 and 2, keeping core 0 exclusively for the main engine thread. */
 s32 dcr_sched_next_core(void) {
@@ -88,12 +93,13 @@ s32 dcr_sched_next_core(void) {
 }
 
 void dcr_sched_guest(Handle h) {
-  /* Restrict worker threads to cores 1 and 2 (mask 0x6: bits 1 and 2), keeping core 0 for the engine */
-  Result rc = dcr_thread_set_cores(h, -3 /* IdealCoreNoUpdate */, 0x6ull);
+  /* Restrict worker threads to cores 1 and 2 (mask 0x6: bits 1 and 2), keeping core 0 exclusively for the engine */
+  s32 ideal = dcr_sched_next_core();
+  Result rc = dcr_thread_set_cores(h, ideal, 0x6ull);
   if (R_FAILED(rc)) {
     static int warned;
     if (!warned++)
-      debugPrintf("[sched] svcSetThreadCoreMask(0x6) failed 0x%x: thread stays on one core\n", rc);
+      debugPrintf("[sched] svcSetThreadCoreMask(0x6, ideal %d) failed 0x%x: thread stays on one core\n", (int)ideal, rc);
   }
 }
 
