@@ -455,7 +455,7 @@ void port_run(void) {
         // Cancel sprint if stick is released (stopped moving forward) or aiming (ZL)
         if (nova3_sprint_active) {
             if (sticks[1] <= 0.2f || nova3_ads_shoulder_held) {
-                nova3_sprint_active = 0;
+                nova3_cancel_sprint_if_active();
             }
         }
 
@@ -512,27 +512,33 @@ void port_run(void) {
 
         static int left_horizontal_key = 0;
         static int left_vertical_key = 0;
+        static int s_retrigger_move_frames = 0;
 
-        // When sprint is seamlessly cancelled by aiming (ZL), Gameloft resets
-        // internal movement vectors. Re-trigger active movement keys so the character
-        // transitions immediately into walking while aiming without requiring stick release.
+        // When sprint is cancelled by aiming (ZL) or changing weapons, release movement
+        // for 1 frame so Gameloft processes the release and seamlessly engages walking
+        // on the next frame without requiring the player to physically release the stick.
         if (nova3_sprint_cancelled_refresh_move) {
             nova3_sprint_cancelled_refresh_move = 0;
             if (left_vertical_key && nova_key_up) nova_key_up(env, gl2jni_class, left_vertical_key);
             if (left_horizontal_key && nova_key_up) nova_key_up(env, gl2jni_class, left_horizontal_key);
             left_vertical_key = 0;
             left_horizontal_key = 0;
+            s_retrigger_move_frames = 1;
         }
 
-        if (horizontal_key != left_horizontal_key) {
-            if (left_horizontal_key && nova_key_up) nova_key_up(env, gl2jni_class, left_horizontal_key);
-            if (horizontal_key && nova_key_down) nova_key_down(env, gl2jni_class, horizontal_key);
-            left_horizontal_key = horizontal_key;
-        }
-        if (vertical_key != left_vertical_key) {
-            if (left_vertical_key && nova_key_up) nova_key_up(env, gl2jni_class, left_vertical_key);
-            if (vertical_key && nova_key_down) nova_key_down(env, gl2jni_class, vertical_key);
-            left_vertical_key = vertical_key;
+        if (s_retrigger_move_frames > 0) {
+            s_retrigger_move_frames--;
+        } else {
+            if (horizontal_key != left_horizontal_key) {
+                if (left_horizontal_key && nova_key_up) nova_key_up(env, gl2jni_class, left_horizontal_key);
+                if (horizontal_key && nova_key_down) nova_key_down(env, gl2jni_class, horizontal_key);
+                left_horizontal_key = horizontal_key;
+            }
+            if (vertical_key != left_vertical_key) {
+                if (left_vertical_key && nova_key_up) nova_key_up(env, gl2jni_class, left_vertical_key);
+                if (vertical_key && nova_key_down) nova_key_down(env, gl2jni_class, vertical_key);
+                left_vertical_key = vertical_key;
+            }
         }
 
         // Reload input buffering (handles weapon unaim transition seamlessly)
