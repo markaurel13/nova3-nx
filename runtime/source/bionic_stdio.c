@@ -264,7 +264,7 @@ void *b_fopen(const char *path, const char *mode) {
   /* One port's loading thread spent most of a 184 s load inside
    * fsFsOpenFile here (hardware); name the slow opens and who makes them. */
   static unsigned slow;
-  if (ms >= 20 && slow < 200) {
+  if ((ms >= 50) || (ms >= 20 && slow < 500)) {
     char who[64];
     slow++;
     debugPrintf("[io] slow fopen %llu ms: %s (%s) -> %s, from %s\n", (unsigned long long)ms, path,

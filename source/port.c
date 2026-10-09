@@ -174,9 +174,13 @@ static void report_perf_metrics(int in_gameplay, uint64_t total_us, uint64_t cpu
         uint32_t fps    = (avg_ms > 0) ? (1000 / avg_ms) : 0;
         uint32_t hits_delta = g_gla_pool_hits - s_last_hits;
 
-        debugPrintf("[Perf (%s)] FPS: %u | Frame: avg %u ms (min %u, max %u) | CPU: %u ms, GPU: %u ms, In: %u ms | Drops: %u (>33ms) | Cache: +%u (Total: %u, Miss: %u)\n",
+#include <malloc.h>
+        struct mallinfo mi = mallinfo();
+        uint32_t ram_mb = (uint32_t)(mi.uordblks / (1024 * 1024));
+
+        debugPrintf("[Perf (%s)] FPS: %u | Frame: avg %u ms (min %u, max %u) | CPU: %u ms, GPU: %u ms, In: %u ms | RAM: %u MB | Drops: %u (>33ms) | Cache: +%u (Total: %u, Miss: %u)\n",
             in_gameplay ? "Gameplay" : "Menus",
-            fps, avg_ms, min_ms, max_ms, cpu_ms, gpu_ms, in_ms,
+            fps, avg_ms, min_ms, max_ms, cpu_ms, gpu_ms, in_ms, ram_mb,
             s_drops, hits_delta, g_gla_pool_hits, g_gla_pool_misses);
 
         s_frames = 0;
