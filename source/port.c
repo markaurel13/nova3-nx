@@ -263,7 +263,7 @@ void port_run(void) {
     egl_init_port();
     s_game_started = 1;
     
-    // Pre-warm GLA handle pool so first-time audio access doesn't hitch
+    // Pre-warm GLA handle pool (3 concurrent handles per audio bank)
     extern void *b_fopen(const char *path, const char *mode);
     extern int b_fclose(void *fp);
     static const char *const prewarm_gla[] = {
@@ -275,10 +275,15 @@ void port_run(void) {
         "sdmc:/switch/nova3/data/files/weapons_stream.gla",
     };
     for (size_t i = 0; i < sizeof(prewarm_gla)/sizeof(prewarm_gla[0]); i++) {
-        void *pf = b_fopen(prewarm_gla[i], "rb");
-        if (pf) b_fclose(pf);
+        void *handles[3] = {NULL, NULL, NULL};
+        for (int h = 0; h < 3; h++) {
+            handles[h] = b_fopen(prewarm_gla[i], "rb");
+        }
+        for (int h = 0; h < 3; h++) {
+            if (handles[h]) b_fclose(handles[h]);
+        }
     }
-    printf("[port] GLA handle pool pre-warmed.\n");
+    printf("[port] GLA handle pool pre-warmed (3 handles per audio bank).\n");
     
     static uint64_t s_frames = 0;
     while (appletMainLoop()) {
@@ -448,14 +453,14 @@ void port_run(void) {
         
         uint64_t total_ns = armTicksToNs(t_swap - t_start);
         static uint64_t last_lag_log = 0;
-        if (total_ns > 100000000ULL && (frame_count - last_lag_log > 30)) { // > 100ms threshold, rate-limited
+        if (total_ns > 100000000000ULL && (frame_count - last_lag_log > 30)) { // > 100ms threshold, rate-limited
             last_lag_log = frame_count;
             debugPrintf("[Profiler] Lag spike! Total: %llu ms | Inputs: %llu ms | Touch: %llu ms | Engine+GL: %llu ms | Swap/VSync: %llu ms\n",
-                total_ns / 1000000ULL,
-                armTicksToNs(t_inputs - t_start) / 1000000ULL,
-                armTicksToNs(t_touch - t_inputs) / 1000000ULL,
-                armTicksToNs(t_step - t_touch) / 1000000ULL,
-                armTicksToNs(t_swap - t_step) / 1000000ULL
+                total_ns / 1000000000ULL,
+                armTicksToNs(t_inputs - t_start) / 1000000000ULL,
+                armTicksToNs(t_touch - t_inputs) / 1000000000ULL,
+                armTicksToNs(t_step - t_touch) / 1000000000ULL,
+                armTicksToNs(t_swap - t_step) / 1000000000ULL
             );
         }
 
@@ -487,18 +492,18 @@ void port_run(void) {
 
         if (total_ns < s_perf_min_ns) s_perf_min_ns = total_ns;
         if (total_ns > s_perf_max_ns) s_perf_max_ns = total_ns;
-        if (total_ns > 18000000ULL) s_perf_drops_18ms++;
-        if (total_ns > 33333333ULL) s_perf_drops_33ms++;
+        if (total_ns > 18000000000ULL) s_perf_drops_18ms++;
+        if (total_ns > 33333333333ULL) s_perf_drops_33ms++;
 
         if (s_perf_frames >= 120) {
             uint64_t now_tick = armGetSystemTick();
-            float avg_ms = (float)s_perf_total_frame_ns / (float)(s_perf_frames * 1000000.0f);
+            float avg_ms = (float)s_perf_total_frame_ns / (float)(s_perf_frames * 1000000000.0f);
             float fps = (avg_ms > 0.001f) ? (1000.0f / avg_ms) : 0.0f;
-            float min_ms = (float)s_perf_min_ns / 1000000.0f;
-            float max_ms = (float)s_perf_max_ns / 1000000.0f;
-            float cpu_ms = (float)s_perf_total_cpu_ns / (float)(s_perf_frames * 1000000.0f);
-            float gpu_ms = (float)s_perf_total_gpu_ns / (float)(s_perf_frames * 1000000.0f);
-            float in_ms  = (float)s_perf_total_in_ns / (float)(s_perf_frames * 1000000.0f);
+            float min_ms = (float)s_perf_min_ns / 1000000000.0f;
+            float max_ms = (float)s_perf_max_ns / 1000000000.0f;
+            float cpu_ms = (float)s_perf_total_cpu_ns / (float)(s_perf_frames * 1000000000.0f);
+            float gpu_ms = (float)s_perf_total_gpu_ns / (float)(s_perf_frames * 1000000000.0f);
+            float in_ms  = (float)s_perf_total_in_ns / (float)(s_perf_frames * 1000000000.0f);
             uint32_t hits_delta = g_gla_pool_hits - s_last_hits;
 
             debugPrintf("[Perf] FPS: %.1f | Frame: avg %.2f ms (min %.2f, max %.2f) | CPU: %.2f ms, GPU/VSync: %.2f ms, In: %.2f ms | Drops: %u (>18ms), %u (>33ms) | GLA Cache: +%u hits (Total: %u, Misses: %u)\n",

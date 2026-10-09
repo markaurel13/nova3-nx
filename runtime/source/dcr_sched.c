@@ -81,20 +81,19 @@ Result dcr_thread_get_cores(Handle h, s32 *ideal, u64 *mask) {
 Result __wrap_svcSetThreadCoreMask(Handle h, s32 ideal, u64 mask);
 Result __wrap_svcSetThreadCoreMask(Handle h, s32 ideal, u64 mask) { return dcr_thread_set_cores(h, ideal, mask); }
 
-/* New guest threads start on cores 0, 1, 2 in turn; the kernel moves them
- * from there as load demands. */
+/* New guest threads start on cores 1 and 2, keeping core 0 exclusively for the main engine thread. */
 s32 dcr_sched_next_core(void) {
   static uint32_t next;
-  return (s32)(__atomic_fetch_add(&next, 1, __ATOMIC_RELAXED) % 3);
+  return 1 + (s32)(__atomic_fetch_add(&next, 1, __ATOMIC_RELAXED) % 2);
 }
 
 void dcr_sched_guest(Handle h) {
-  Result rc = dcr_thread_set_cores(h, -3 /* IdealCoreNoUpdate */, DCR_GUEST_CORES);
+  /* Restrict worker threads to cores 1 and 2 (mask 0x6: bits 1 and 2), keeping core 0 for the engine */
+  Result rc = dcr_thread_set_cores(h, -3 /* IdealCoreNoUpdate */, 0x6ull);
   if (R_FAILED(rc)) {
     static int warned;
     if (!warned++)
-      debugPrintf("[sched] svcSetThreadCoreMask(0x%x) failed 0x%x: thread stays on one core\n",
-                  (unsigned)DCR_GUEST_CORES, rc);
+      debugPrintf("[sched] svcSetThreadCoreMask(0x6) failed 0x%x: thread stays on one core\n", rc);
   }
 }
 

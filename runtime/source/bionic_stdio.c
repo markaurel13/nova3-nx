@@ -198,6 +198,13 @@ static Mutex g_gla_pool_lock;
 uint32_t g_gla_pool_hits = 0;
 uint32_t g_gla_pool_misses = 0;
 
+static inline const char *gla_basename(const char *path) {
+  if (!path) return "";
+  const char *slash = strrchr(path, '/');
+  if (!slash) slash = strrchr(path, '\\');
+  return slash ? slash + 1 : path;
+}
+
 void *b_fopen(const char *path, const char *mode) {
   if (!path || !mode) {
     b_set_errno(L_EINVAL);
@@ -222,9 +229,10 @@ void *b_fopen(const char *path, const char *mode) {
   int is_gla_ro = (!writes && (strstr(real, ".gla") != NULL));
 
   if (is_gla_ro) {
+    const char *base = gla_basename(real);
     mutexLock(&g_gla_pool_lock);
     for (int i = 0; i < g_gla_pool_count; i++) {
-      if (!strcmp(g_gla_pool[i].path, real)) {
+      if (!strcmp(gla_basename(g_gla_pool[i].path), base)) {
         FILE *f = g_gla_pool[i].fp;
         g_gla_pool[i] = g_gla_pool[--g_gla_pool_count];
         g_gla_pool_hits++;
@@ -315,8 +323,9 @@ int b_fclose(void *fp) {
     g_gla_active[active_idx] = g_gla_active[--g_gla_active_count];
 
     int in_pool = 0;
+    const char *base = gla_basename(saved_path);
     for (int i = 0; i < g_gla_pool_count; i++) {
-      if (!strcmp(g_gla_pool[i].path, saved_path))
+      if (!strcmp(gla_basename(g_gla_pool[i].path), base))
         in_pool++;
     }
 

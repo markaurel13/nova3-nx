@@ -300,18 +300,24 @@ int b___android_log_write(int prio, const char *tag, const char *text) {
       return 1;
     if (strstr(text, "BA m_itemsRetrieved") != NULL)
       return 1;
+    if (strstr(text, "NavSpaceQuery") != NULL || strstr(text, "assert ") != NULL)
+      return 1;
   }
   debugPrintf("[%s/%s] %s\n", prio_name(prio), tag ? tag : "", text ? text : "");
   return 1;
 }
 
 int b___android_log_vprint(int prio, const char *tag, const char *fmt, va_list ap) {
+  if (fmt && (strstr(fmt, "NavSpaceQuery") || strstr(fmt, "assert ")))
+    return 1;
   char buf[1024];
   vsnprintf(buf, sizeof buf, fmt ? fmt : "", ap);
   return b___android_log_write(prio, tag, buf);
 }
 
 int b___android_log_print(int prio, const char *tag, const char *fmt, ...) {
+  if (fmt && (strstr(fmt, "NavSpaceQuery") || strstr(fmt, "assert ")))
+    return 1;
   va_list ap;
   va_start(ap, fmt);
   int r = b___android_log_vprint(prio, tag, fmt, ap);
