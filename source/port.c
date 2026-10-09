@@ -363,33 +363,83 @@ void port_run(void) {
 
         rt_pad_read(&pad, sticks);
 
-        // Convert Left Stick to D-PAD (Gameloft ignored Left Joystick native binding)
-        int horizontal_key = sticks[0] > 0.5f ? 22 : (sticks[0] < -0.5f ? 21 : 0);
-        int vertical_key = sticks[1] > 0.5f ? 19 : (sticks[1] < -0.5f ? 20 : 0);
-        
-        static int sprint_macro_frame = 0;
-        if (keys_down & HidNpadButton_StickL) {
-            sprint_macro_frame = 1;
+        uint64_t now_ms = (uint64_t)(armTicksToNs(armGetSystemTick()) / 1000000ULL);
+
+        // Convert Left Stick to D-PAD with Consistent Double-Flick Sprint Controller
+        float stick_lx = sticks[0];
+        float stick_ly = sticks[1]; // Positive = UP (forward), Negative = DOWN (backward)
+
+        // Anti-snapback: when releasing stick forward, suppress accidental backward recoil
+        static uint64_t forward_release_ms = 0;
+        if (stick_ly < -0.2f && (now_ms - forward_release_ms < 140)) {
+            stick_ly = 0.0f;
         }
 
-        if (sprint_macro_frame > 0) {
-            if (sprint_macro_frame >= 1 && sprint_macro_frame < 4) {
-                vertical_key = 0;
-            } else if (sprint_macro_frame >= 4 && sprint_macro_frame < 8) {
+        int horizontal_key = stick_lx > 0.40f ? 22 : (stick_lx < -0.40f ? 21 : 0);
+
+        // Sprint detection: tracks double-flick timing
+        static uint64_t sprint_start_ms = 0;
+        static int stick_forward_latched = 0;
+        static int is_sprinting = 0;
+
+        const float PUSH_THRESH = 0.55f;
+        const float RELEASE_THRESH = 0.22f;
+
+        if (!stick_forward_latched && stick_ly >= PUSH_THRESH) {
+            stick_forward_latched = 1;
+            uint64_t idle_time = now_ms - forward_release_ms;
+            // Double-flick forward: stick was pushed forward, released, and pushed again within 340 ms
+            if (idle_time > 30 && idle_time < 340) {
+                is_sprinting = 1;
+                sprint_start_ms = now_ms;
+                forward_release_ms = 0;
+            }
+        } else if (stick_forward_latched && stick_ly < RELEASE_THRESH) {
+            stick_forward_latched = 0;
+            forward_release_ms = now_ms;
+            if (is_sprinting) {
+                is_sprinting = 0;
+                sprint_start_ms = 0;
+            }
+        }
+
+        // L3 (StickL) also triggers/toggles sprint immediately
+        if (keys_down & HidNpadButton_StickL) {
+            is_sprinting = 1;
+            sprint_start_ms = now_ms;
+        }
+
+        int vertical_key = 0;
+        if (is_sprinting) {
+            uint64_t elapsed = now_ms - sprint_start_ms;
+            // Synthesize clean double-tap pulse Gameloft engine expects:
+            // 0..55ms: Key 19 DOWN
+            // 55..110ms: Key 19 UP
+            // 110ms+: Key 19 HELD DOWN continuously for sprinting
+            if (elapsed < 55) {
                 vertical_key = 19;
-            } else if (sprint_macro_frame >= 8 && sprint_macro_frame < 12) {
+            } else if (elapsed < 110) {
                 vertical_key = 0;
-            } else if (sprint_macro_frame >= 12 && sprint_macro_frame < 16) {
+            } else {
                 vertical_key = 19;
             }
-            sprint_macro_frame++;
-            if (sprint_macro_frame >= 16) sprint_macro_frame = 0;
+
+            // Stop sprinting when stick is released
+            if (stick_ly < RELEASE_THRESH && elapsed >= 110) {
+                is_sprinting = 0;
+                vertical_key = 0;
+            }
+        } else {
+            // Normal walking
+            if (stick_ly > 0.30f) {
+                vertical_key = 19; // UP
+            } else if (stick_ly < -0.35f) {
+                vertical_key = 20; // DOWN
+            }
         }
         
         static int left_horizontal_key = 0;
         static int left_vertical_key = 0;
-
-        
 
         if (horizontal_key != left_horizontal_key) {
             if (left_horizontal_key && nova_key_up) nova_key_up(env, gl2jni_class, left_horizontal_key);
@@ -402,11 +452,39 @@ void port_run(void) {
             left_vertical_key = vertical_key;
         }
 
+        // Reload input buffering (handles weapon unaim transition seamlessly)
+        static uint64_t reload_buffer_until_ms = 0;
+        static int reload_key_active = 0;
+
+        if (keys_down & HidNpadButton_X) {
+            if (nova3_ads_shoulder_held) {
+                nova3_ads_hold_end(); // Drop aim when reload is requested
+            }
+            reload_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
+        }
+
+        if (now_ms < reload_buffer_until_ms) {
+            uint64_t phase = (now_ms - (reload_buffer_until_ms - 420)) % 70;
+            if (phase < 45) {
+                if (!reload_key_active) {
+                    if (nova_key_down) nova_key_down(env, gl2jni_class, 99);
+                    reload_key_active = 1;
+                }
+            } else {
+                if (reload_key_active) {
+                    if (nova_key_up) nova_key_up(env, gl2jni_class, 99);
+                    reload_key_active = 0;
+                }
+            }
+        } else if (reload_key_active && !(padGetButtons(&pad) & HidNpadButton_X)) {
+            if (nova_key_up) nova_key_up(env, gl2jni_class, 99);
+            reload_key_active = 0;
+        }
+
         // Standard Buttons
         if (nova_key_down) {
             if (keys_down & HidNpadButton_A) nova_key_down(env, gl2jni_class, 23);
             if (keys_down & HidNpadButton_B) nova_key_down(env, gl2jni_class, 227);
-            if (keys_down & HidNpadButton_X) nova_key_down(env, gl2jni_class, 99);
             if (keys_down & HidNpadButton_Y) nova_key_down(env, gl2jni_class, 100);
 
             if (keys_down & HidNpadButton_Plus) nova_key_down(env, gl2jni_class, 108); // START
@@ -424,7 +502,6 @@ void port_run(void) {
         if (nova_key_up) {
             if (keys_up & HidNpadButton_A) nova_key_up(env, gl2jni_class, 23);
             if (keys_up & HidNpadButton_B) nova_key_up(env, gl2jni_class, 227);
-            if (keys_up & HidNpadButton_X) nova_key_up(env, gl2jni_class, 99);
             if (keys_up & HidNpadButton_Y) nova_key_up(env, gl2jni_class, 100);
 
             if (keys_up & HidNpadButton_Plus) nova_key_up(env, gl2jni_class, 108);
