@@ -472,7 +472,6 @@ void port_run(void) {
         static uint64_t s_perf_total_cpu_us = 0;
         static uint64_t s_perf_total_gpu_us = 0;
         static uint64_t s_perf_total_in_us = 0;
-        static uint32_t s_perf_drops_18ms = 0;
         static uint32_t s_perf_drops_33ms = 0;
         static uint32_t s_last_hits = 0;
 
@@ -490,8 +489,7 @@ void port_run(void) {
 
         if (total_us < s_perf_min_us) s_perf_min_us = total_us;
         if (total_us > s_perf_max_us) s_perf_max_us = total_us;
-        if (total_us > 18181ULL) s_perf_drops_18ms++;
-        if (total_us > 33333ULL) s_perf_drops_33ms++;
+        if (total_us > 35000ULL) s_perf_drops_33ms++;
 
         if (s_perf_frames >= 120) {
             uint64_t now_tick = armGetSystemTick();
@@ -504,9 +502,9 @@ void port_run(void) {
             float in_ms  = (float)s_perf_total_in_us / (float)(s_perf_frames * 1000.0f);
             uint32_t hits_delta = g_gla_pool_hits - s_last_hits;
 
-            debugPrintf("[Perf] FPS: %.1f | Frame: avg %.2f ms (min %.2f, max %.2f) | CPU: %.2f ms, GPU/VSync: %.2f ms, In: %.2f ms | Drops: %u (>18ms), %u (>33ms) | Asset Cache: +%u hits (Total: %u, Misses: %u)\n",
+            debugPrintf("[Perf (30 FPS Cap)] FPS: %.1f | Frame: avg %.2f ms (min %.2f, max %.2f) | CPU: %.2f ms, GPU/VSync: %.2f ms, In: %.2f ms | Drops: %u (>33ms) | Asset Cache: +%u hits (Total: %u, Misses: %u)\n",
                 fps, avg_ms, min_ms, max_ms, cpu_ms, gpu_ms, in_ms,
-                s_perf_drops_18ms, s_perf_drops_33ms,
+                s_perf_drops_33ms,
                 hits_delta, g_gla_pool_hits, g_gla_pool_misses);
 
             s_perf_start = now_tick;
@@ -517,7 +515,6 @@ void port_run(void) {
             s_perf_total_cpu_us = 0;
             s_perf_total_gpu_us = 0;
             s_perf_total_in_us = 0;
-            s_perf_drops_18ms = 0;
             s_perf_drops_33ms = 0;
             s_last_hits = g_gla_pool_hits;
         }

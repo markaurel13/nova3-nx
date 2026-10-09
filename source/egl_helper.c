@@ -41,8 +41,17 @@ int egl_init_port(void) {
     
     if (!eglMakeCurrent(s_display, s_surface, s_surface, s_context)) { debugPrintf("[egl] eglMakeCurrent failed\n"); return 0; }
     
-    debugPrintf("[egl] EGL initialized successfully!\n");
+    // Lock presentation to 30 FPS (interval = 2 on 60Hz display)
+    eglSwapInterval(s_display, 2);
+    
+    debugPrintf("[egl] EGL initialized successfully (30 FPS VSync lock active)!\n");
     return 1;
+}
+
+void egl_set_swap_interval(int interval) {
+    if (s_display) {
+        eglSwapInterval(s_display, interval);
+    }
 }
 
 extern void dcr_boost_first_picture(void);
