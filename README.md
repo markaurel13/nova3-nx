@@ -62,7 +62,7 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 
 ### 2. Extract the Game Library & Copy APK
 1. Copy your `nova3.apk` directly into your Switch folder (`sdmc:/switch/nova3/nova3.apk`).
-2. Open your `nova3.apk` with 7-Zip or WinRAR (or rename it to `nova3.zip`).
+2. Open your `nova3.apk` with 7-Zip or WinRAR (or rename it to `nova3.zip` temporarily).
 3. Go into `lib/armeabi-v7a/` and extract `libNOVA3_neon.so`.
 
 ### 3. Copy to MicroSD
