@@ -518,12 +518,13 @@ void port_run(void) {
                 if (keys_down & HidNpadButton_Down) nova_key_down(env, gl2jni_class, 20);
                 if (keys_down & HidNpadButton_Left) nova_key_down(env, gl2jni_class, 21);
                 if (keys_down & HidNpadButton_Right) nova_key_down(env, gl2jni_class, 22);
-                if (keys_down & HidNpadButton_ZL) nova3_ads_hold_begin(); // L2 (ADS / Aim)
+                if (keys_down & HidNpadButton_ZL) nova3_ads_hold_begin(); // ZL (ADS / Aim)
                 if (keys_down & HidNpadButton_ZR) {
                     nova3_cancel_sprint_if_active(); // Hip fire (ZR) cancels sprint
                     nova_key_down(env, gl2jni_class, 103); // R2
                 }
-                if (keys_down & HidNpadButton_StickR) nova3_change_weapon(env, gl2jni_class); // R3 (Change Weapon)
+                if (keys_down & HidNpadButton_L) nova3_change_weapon(env, gl2jni_class); // L1 (Change Weapon)
+                // R3 (StickR): no longer mapped to weapon change
             }
             if (nova_key_up) {
                 if (keys_up & HidNpadButton_A) nova_key_up(env, gl2jni_class, 23);
@@ -536,7 +537,7 @@ void port_run(void) {
                 if (keys_up & HidNpadButton_Right) nova_key_up(env, gl2jni_class, 22);
                 if (keys_up & HidNpadButton_ZL) nova3_ads_hold_end();
                 if (keys_up & HidNpadButton_ZR) nova_key_up(env, gl2jni_class, 103);
-                if (keys_up & HidNpadButton_StickR) nova_key_up(env, gl2jni_class, 109); // R3
+                // R3 key_up removed (no longer used)
             }
         }
 
@@ -675,7 +676,7 @@ void port_run(void) {
             }
         }
 
-        // Ability input (Y/L): same cycling pattern as grenade.
+        // Ability input (Y only — L1 is now Change Weapon): same cycling pattern as grenade.
         static uint64_t ability_buffer_until_ms = 0;
         static int ability_key_active = 0;
 
@@ -683,7 +684,7 @@ void port_run(void) {
             int in_active_gameplay = (nova3_ads_level_get && nova3_ads_level_get() != NULL)
                                      && !nova3_ingame_menu_active;
 
-            if (in_active_gameplay && (keys_down & (HidNpadButton_Y | HidNpadButton_L))) {
+            if (in_active_gameplay && (keys_down & HidNpadButton_Y)) {
                 nova3_cancel_sprint_if_active(); // Ability cancels sprint
                 ability_buffer_until_ms = now_ms + 420;
             }
