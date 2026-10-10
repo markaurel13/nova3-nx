@@ -184,7 +184,7 @@ static FILE *apk_fopen(void) {
 /* ----------------------------------------------------------- open/close */
 /* ----------------------------------------------------------- open/close */
 #define GLA_POOL_MAX 512
-#define GLA_PER_FILE_MAX 32
+#define GLA_PER_FILE_MAX 64   /* was 32 — weapons_stream.gla was evicted on frequent weapon changes */
 #define GLA_ACTIVE_MAX 512
 
 typedef struct {
