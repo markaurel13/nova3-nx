@@ -83,7 +83,6 @@ sdmc:/switch/nova3/
 1. Open **Sphaira** on your Switch.
 2. Select **N.O.V.A. 3** and choose **Install Forwarder**.
 3. Go back to your Switch HOME Menu and start the game directly from its icon!  
-
 ---
 
 ## Controls
@@ -117,11 +116,11 @@ To lock the game at a super smooth 60 FPS without draining extra battery, you ca
 handheld_cpu=1224
 handheld_gpu=230
 docked_cpu=1224
-docked_gpu=230
+docked_gpu= 460
 ```
 
 * **CPU @ 1224 MHz**: Gives extra headroom for loading and smooth asset streaming.
-* **GPU @ 230 MHz**: Keeps the GPU constantly awake at a cool, battery-friendly baseline (stock handheld is 307–384 MHz, so 230 MHz is very low and safe).
+* **GPU @ 230 MHz**: Keeps the GPU constantly awake at a cool, battery-friendly baseline (stock handheld is 307–384 MHz and stock docked is 768 MHz, so 230 MHz handheld and 460 MHz docked is very low and safe).
 
 We are trading -25% GPU clock for +20% CPU clock, so battery consumption remains roughly the same as stock clocks (or even less).
 
