@@ -477,14 +477,6 @@ void port_run(void) {
         // Standard Buttons (process buttons such as ZL and Weapon Change before stick movement updates)
         if (nova_key_down) {
             if (keys_down & HidNpadButton_A) nova_key_down(env, gl2jni_class, 23);
-            if (keys_down & HidNpadButton_B) {
-                nova3_cancel_sprint_if_active(); // Throw grenade (B) cancels sprint
-                nova_key_down(env, gl2jni_class, 227);
-            }
-            if (keys_down & HidNpadButton_Y) {
-                nova3_cancel_sprint_if_active(); // Ability (Y) cancels sprint
-                nova_key_down(env, gl2jni_class, 100);
-            }
 
             if (keys_down & HidNpadButton_Plus) nova_key_down(env, gl2jni_class, 108); // START
             if (keys_down & HidNpadButton_Minus) nova3_change_weapon(env, gl2jni_class); // SELECT
@@ -492,14 +484,6 @@ void port_run(void) {
             if (keys_down & HidNpadButton_Down) nova_key_down(env, gl2jni_class, 20);
             if (keys_down & HidNpadButton_Left) nova_key_down(env, gl2jni_class, 21);
             if (keys_down & HidNpadButton_Right) nova_key_down(env, gl2jni_class, 22);
-            if (keys_down & HidNpadButton_L) {
-                nova3_cancel_sprint_if_active(); // Ability (L) cancels sprint
-                nova_key_down(env, gl2jni_class, 100);
-            }
-            if (keys_down & HidNpadButton_R) {
-                nova3_cancel_sprint_if_active(); // Throw grenade (R) cancels sprint
-                nova_key_down(env, gl2jni_class, 227);
-            }
             if (keys_down & HidNpadButton_ZL) nova3_ads_hold_begin(); // L2 (ADS / Aim)
             if (keys_down & HidNpadButton_ZR) {
                 nova3_cancel_sprint_if_active(); // Hip fire (ZR) cancels sprint
@@ -509,8 +493,6 @@ void port_run(void) {
         }
         if (nova_key_up) {
             if (keys_up & HidNpadButton_A) nova_key_up(env, gl2jni_class, 23);
-            if (keys_up & HidNpadButton_B) nova_key_up(env, gl2jni_class, 227);
-            if (keys_up & HidNpadButton_Y) nova_key_up(env, gl2jni_class, 100);
 
             if (keys_up & HidNpadButton_Plus) nova_key_up(env, gl2jni_class, 108);
             if (keys_up & HidNpadButton_Minus) nova_key_up(env, gl2jni_class, 109);
@@ -518,8 +500,6 @@ void port_run(void) {
             if (keys_up & HidNpadButton_Down) nova_key_up(env, gl2jni_class, 20);
             if (keys_up & HidNpadButton_Left) nova_key_up(env, gl2jni_class, 21);
             if (keys_up & HidNpadButton_Right) nova_key_up(env, gl2jni_class, 22);
-            if (keys_up & HidNpadButton_L) nova_key_up(env, gl2jni_class, 100);
-            if (keys_up & HidNpadButton_R) nova_key_up(env, gl2jni_class, 227);
             if (keys_up & HidNpadButton_ZL) nova3_ads_hold_end();
             if (keys_up & HidNpadButton_ZR) nova_key_up(env, gl2jni_class, 103);
             if (keys_up & HidNpadButton_StickR) nova_key_up(env, gl2jni_class, 109); // R3
@@ -584,6 +564,60 @@ void port_run(void) {
         } else if (reload_key_active && !(padGetButtons(&pad) & HidNpadButton_X)) {
             if (nova_key_up) nova_key_up(env, gl2jni_class, 99);
             reload_key_active = 0;
+        }
+
+        // Grenade input buffering (ensures grenade throws reliably across sprint transitions)
+        static uint64_t grenade_buffer_until_ms = 0;
+        static int grenade_key_active = 0;
+
+        if (keys_down & (HidNpadButton_B | HidNpadButton_R)) {
+            nova3_cancel_sprint_if_active(); // Grenade cancels sprint
+            grenade_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
+        }
+
+        if (now_ms < grenade_buffer_until_ms) {
+            uint64_t phase = (now_ms - (grenade_buffer_until_ms - 420)) % 70;
+            if (phase < 45) {
+                if (!grenade_key_active) {
+                    if (nova_key_down) nova_key_down(env, gl2jni_class, 227);
+                    grenade_key_active = 1;
+                }
+            } else {
+                if (grenade_key_active) {
+                    if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
+                    grenade_key_active = 0;
+                }
+            }
+        } else if (grenade_key_active && !(padGetButtons(&pad) & (HidNpadButton_B | HidNpadButton_R))) {
+            if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
+            grenade_key_active = 0;
+        }
+
+        // Ability input buffering (ensures ability triggers reliably across sprint transitions)
+        static uint64_t ability_buffer_until_ms = 0;
+        static int ability_key_active = 0;
+
+        if (keys_down & (HidNpadButton_Y | HidNpadButton_L)) {
+            nova3_cancel_sprint_if_active(); // Ability cancels sprint
+            ability_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
+        }
+
+        if (now_ms < ability_buffer_until_ms) {
+            uint64_t phase = (now_ms - (ability_buffer_until_ms - 420)) % 70;
+            if (phase < 45) {
+                if (!ability_key_active) {
+                    if (nova_key_down) nova_key_down(env, gl2jni_class, 100);
+                    ability_key_active = 1;
+                }
+            } else {
+                if (ability_key_active) {
+                    if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
+                    ability_key_active = 0;
+                }
+            }
+        } else if (ability_key_active && !(padGetButtons(&pad) & (HidNpadButton_Y | HidNpadButton_L))) {
+            if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
+            ability_key_active = 0;
         }
 
         // Right Stick Camera (Vita acceleration with inverted Y)
