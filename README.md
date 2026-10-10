@@ -2,214 +2,181 @@
 
 <img src="launcher/icon.jpg" alt="N.O.V.A. 3" width="160">
 
-# nova3-nx
+# nova3_nx
 
 **N.O.V.A. 3: Near Orbit Vanguard Alliance for Nintendo Switch**
 
-An unofficial native Nintendo Switch port / wrapper for the 32-bit Android release of  
-**N.O.V.A. 3: Near Orbit Vanguard Alliance (v1.0.7)**.
+An unofficial native Nintendo Switch wrapper for the 32-bit Android release of  
+**N.O.V.A. 3: Near Orbit Vanguard Alliance**.
 
 [![Nintendo Switch](https://img.shields.io/badge/Nintendo_Switch-Homebrew-E60012?style=for-the-badge&logo=nintendoswitch&logoColor=white)](#)
-[![Status](https://img.shields.io/badge/Status-Playable-brightgreen?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-1.0.7-4C8BF5?style=for-the-badge)](#)
 [![Architecture](https://img.shields.io/badge/AArch32-32--bit_Native-6A1B9A?style=for-the-badge)](#)
-[![Graphics](https://img.shields.io/badge/Graphics-OpenGL_ES_2.0-FF6F00?style=for-the-badge&logo=opengl&logoColor=white)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
 </div>
 
 ---
 
-A native Nintendo Switch port / wrapper of Gameloft's sci-fi FPS classic **N.O.V.A. 3: Near Orbit Vanguard Alliance** (Android version **1.0.7**, versionCode `1070`), built utilizing the **android32** execution runtime on Horizon OS.
+## About
 
-This port runs the original ARMv7-A NEON native library (`libNOVA3_neon.so`) directly on the Switch hardware with full physical controller support, hardware-accelerated OpenGL ES 2.0 rendering via Mesa Nouveau, multi-threaded audio via OpenSL ES, and an optimized I/O caching subsystem.
+`nova3_nx` is a native wrapper that runs the 32-bit ARM Android build of Gameloft's sci-fi FPS classic **N.O.V.A. 3: Near Orbit Vanguard Alliance** on Nintendo Switch.
+
+Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit ARM (AArch32) execution, the game runs **directly on the hardware with full native speed**—no emulation involved.
+
+> [!NOTE]
+> **No game code or assets are included in this repository.**  
+> Users must supply their own legally purchased copy of the game.
 
 ---
 
 ## Features
 
-- **Native Dual-Stick Controls**: Fully mapped for Nintendo Switch Joy-Cons and Pro Controllers.
-- **Sprint on L3**: Left Stick click toggles sprint seamlessly according to modern FPS standards (double-stick flick sprint completely disabled for consistency).
-- **Weapon Switch on L1**: Quick weapon switching mapped directly to L1 (shoulder button).
-- **Skill on Y**: Special ability activation dedicated to the Y face button.
-- **Hold-to-Aim ADS**: True hold-to-aim support on ZL (Left Trigger).
-- **Mesa Nouveau OpenGL ES 2.0**: Native hardware acceleration via Tegra X1 GPU.
-- **Low-Latency Audio**: Multi-buffered audio streaming backed by Horizon `audout` through OpenSL ES (zero underruns).
-- **GLA File Cache & Async Save**: In-memory handle pooling for `.gla` archives and background thread saves to eliminate MicroSD I/O lag spikes.
-- **Standalone NRO Launcher**: Includes a dedicated Homebrew Menu forwarder launcher with loading screen progress bar.
-
----
-
-## Controls
-
-| Nintendo Switch Button | Action |
-|:---|:---|
-| **Left Stick** | Move |
-| **Right Stick** | Camera Aim |
-| **L3** | **Sprint** |
-| **L** | Change Weapon |
-| **Y** | Special Ability |
-| **ZL** | Aim |
-| **ZR** | Shoot |
-| **R / B** | **Grenade** |
-| **X** | **Reload** (Reload) |
-| **A** | Jump / Confirm |
-| **Plus (+)** | Pause Menu |
-| **Minus (-)** | Alternative Change weapon |
-| **D-Pad** | Directional movement |
+- **Full Native Performance:** Runs natively on the Switch hardware targeting a smooth 60 FPS.
+- **Modern Controller Layout:** Full dual-stick aiming, sprint with L3, quick weapon swap with L1, and hold-to-aim with ZL.
+- **Hardware-Accelerated Graphics:** Powered by OpenGL ES 2.0 via Mesa Nouveau for crisp 720p/1080p rendering.
+- **Audio & Fast Loading:** Clear audio streaming and optimized RAM caching for seamless gameplay without MicroSD lag spikes.
+- **Sphaira Forwarder Support:** Dedicated launcher that allows launching directly from the Switch HOME Menu.
 
 ---
 
 ## Requirements
 
-To run this port, you need game assets from an official copy of **N.O.V.A. 3** for Android:
-- Version: **v1.0.7**.
-- The game's APK.
-- The game's OBB files
-- The .nro file from the repository
+### For Players
+- A Nintendo Switch running **Atmosphère** custom firmware.
+- The [Sphaira](https://github.com/ITotalJustice/sphaira) homebrew menu (installing Sphaira's forwarder is required so the system launches it in 32-bit mode).
+- A copy of **nova3.apk** (v1.0.7, versionCode `1070`).
+- The game's two OBB data files:
+  - `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb`
+  - `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb`
 
 ---
 
 ## Installation Guide
 
-### Step 1: Extract Game Assets
+### 1. Extract Game Data
+1. Create a new folder on your computer named `files`.
+2. Open/extract `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb` into your `files` folder using 7-Zip or WinRAR.
+3. Open/extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb` into the **same** `files` folder.
+4. **Important**: When prompted, choose **Replace / Overwrite all** so the newer 1070 files replace the older 1050 files.
 
-The OBB files are standard ZIP archives containing the game data.
+### 2. Extract the Game Library
+1. Open your `nova3.apk` with 7-Zip or WinRAR (or rename it to `nova3.zip`).
+2. Go into `lib/armeabi-v7a/` and extract `libNOVA3_neon.so`.
 
-1. Create a folder on your PC named "files".
-2. Open/extract `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb` into "files" using 7-Zip, WinRAR, or your system unzip tool.
-3. Now Open/extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb`into "files" using 7-Zip, WinRAR, or your system unzip tool.
-4. **Important (Overwrite)**: Merge the extracted contents of **1070** into the extracted folder of **1050**, choosing **Overwrite all** so the updated 1070 patch files replace the older 1050 files.
+### 3. Copy to MicroSD
+1. Download `nova3.nro` from the [Releases](#) section.
+2. On your Switch SD card, create the folder `sdmc:/switch/nova3/`.
+3. Copy your files so the structure looks exactly like this:
 
-### Step 2: Extract the Native Library
-
-From your `nova3.apk` (v1.0.7):
-1. Rename `nova3.apk` to `nova3.zip` or open it with 7-Zip.
-2. Extract `lib/armeabi-v7a/libNOVA3_neon.so`.
-
-### Step 3: Copy Files to MicroSD
-
-Create a folder named "nova3" on /switch/ and place the files onto your Nintendo Switch MicroSD card following this exact directory layout:
-
-```
+```text
 sdmc:/switch/nova3/
 ├── nova3.nro
 ├── libNOVA3_neon.so
 └── data/
     └── files/
-        ├── ... (all extracted OBB assets)
+        └── (paste all files from your "files" folder here)
 ```
 
-### Step 4: Launching the Game
-
-Launch **`nova3.nro`** from the **Homebrew Menu** via **Title Redirection** (hold R while launching any installed Switch game) to grant full RAM access. Do not use Applet Mode (Album) and don't forget to create a forwarder using sphaira (The game is 32 bits so you need this in order to play it).
+### 4. Launching the Game
+1. Open **Sphaira** on your Switch.
+2. Select **N.O.V.A. 3** and choose **Install Forwarder**.
+3. Go back to your Switch HOME Menu and start the game directly from its icon!  
+*(Alternatively, you can launch `nova3.nro` through Title Redirection by holding R while opening any Switch game).*
 
 ---
 
-## Recommended Overclock Settings (sys-clk)
+## Controls
 
-N.O.V.A. 3 runs very well on Stock clock, but the Tegra X1 dynamic governor may aggressively downclock or put the GPU into sleep mode during frames with heavy CPU translation spikes, causing artificial frame stutters (THis is because the GPU is not used at all bc the game's graphics requirements are pretty slight so it's practically "Sleeping" most of the time because the game barely consumes any GPU).
+| Button | Action |
+| :--- | :--- |
+| **Left Stick** | Move / Walk |
+| **Right Stick** | Look / Aim Camera |
+| **L3 (Stick Click)** | **Sprint / Run** (Click to toggle) |
+| **L1 (L)** | **Change Weapon** |
+| **Y** | **Special Ability** |
+| **ZL** | **Aim Down Sights (ADS)** (Hold to aim) |
+| **ZR** | **Shoot / Fire** |
+| **R / B** | **Throw Grenade** |
+| **X** | **Reload** |
+| **A** | **Jump / Action** |
+| **+ (Plus)** | Pause Menu |
+| **- (Minus)** | Alternative Weapon Switch |
+| **Touchscreen** | Menus and touch interface |
 
-To ensure consistent 60 FPS performance without draining battery, we recommend setting a modest, stable clock profile via **sys-clk** where we downclock GPU in return of more CPU (This is completely optional).
+---
+
+## Recommended Overclock (sys-clk) — Optional
+
+The game runs great on stock clocks, but the Switch power manager can put the GPU into "sleep mode" (76 MHz) during light scenes because the game barely uses any GPU power, which can cause small hiccups.
+
+To lock the game at a super smooth 60 FPS without draining extra battery, you can optionally set this profile in **sys-clk**:
 
 ```ini
 [0100777777777000]
 handheld_cpu=1224
 handheld_gpu=230
-hadheld_ram=stock
 docked_cpu=1224
 docked_gpu=230
-docked_ram=stock
 ```
 
-### Why these frequencies?
-- **CPU @ 1224 MHz**: A slight bump over stock (1020 MHz) provides plenty of breathing room for the 32-bit bionic translation layer and streaming decompression without generating excess heat.
-- **GPU @ 230 MHz**: Keeps the GPU awake at a fixed, cool, battery-friendly baseline. Because the Switch's stock handheld GPU is 307–384 MHz and docked is up to 768 MHz, 230 MHz is actually *below or around stock*, but prevents the power governor from sleeping the GPU down to 76 MHz during CPU-bound asset streaming.
+* **CPU @ 1224 MHz**: Gives extra headroom for loading and smooth asset streaming.
+* **GPU @ 230 MHz**: Keeps the GPU constantly awake at a cool, battery-friendly baseline (stock handheld is 307–384 MHz, so 230 MHz is very low and safe).
 
 ---
 
 ## Building from Source
 
 ### Prerequisites
-
+- Linux (Ubuntu / Debian / Mint) or WSL2 on Windows
 - **Docker**
-- Linux environment (or WSL2 on Windows)
-- `git`
+- Git
 
-### Build Steps
+### Build Instructions
 
-1. Clone this repository alongside `libnx32`:
+1. **Clone the repository:**
+   ```bash
+   git clone --recursive https://github.com/markaurel13/nova3-switch.git
+   cd nova3-switch
+   ```
 
-```bash
-git clone https://github.com/aks796/libnx32.git
-git clone https://github.com/<your-username>/nova3-switch.git
-```
+2. **Set up `libnx32` and `mesa32`:**
+   - Build `libnx32`:
+     ```bash
+     git clone https://github.com/aks796/libnx32.git
+     ./libnx32/build.sh
+     ```
+   - Download prebuilt `mesa32` into `portlibs32/`:
+     ```bash
+     mkdir -p portlibs32
+     wget https://github.com/aks796/mesa32/releases/download/mesa-20.1.0-rc3/mesa32.zip -O /tmp/mesa32.zip
+     unzip -q /tmp/mesa32.zip -d portlibs32/
+     ```
 
-2. Build `libnx32` prefix:
+3. **Build the game binary:**
+   ```bash
+   ./build.sh
+   ```
 
-```bash
-cd libnx32
-./build.sh
-cd ..
-```
-
-3. Download prebuilt Mesa 32-bit (`mesa32`) into `portlibs32/`:
-
-```bash
-cd nova3-switch
-mkdir -p portlibs32
-wget https://github.com/aks796/mesa32/releases/download/mesa-20.1.0-rc3/mesa32.zip -O /tmp/mesa32.zip
-unzip -q /tmp/mesa32.zip -d portlibs32/
-```
-
-4. Build the core 32-bit ExeFS payload (`nova3_nx.nsp`):
-
-```bash
-./build.sh
-```
-
-5. Build the Homebrew Menu launcher (`nova3.nro`):
-
-```bash
-cp nova3_nx.nsp launcher/
-cd launcher
-./build.sh
-```
-
-The compiled binaries `nova3.nro` and `nova3_nx.nsp` will be generated inside the `launcher/` directory.
+4. **Build the launcher NRO:**
+   ```bash
+   cd launcher
+   ./build.sh
+   ```
+   The compiled launcher will be located at `launcher/nova3.nro`.
 
 ---
 
-## Project Structure
+## Credits & Acknowledgments
 
-```
-nova3-switch/
-├── build.sh             # Main build entrypoint (runs Docker toolchain)
-├── Makefile             # Port Makefile
-├── portlibs32/          # Mesa 32-bit EGL/GLES2 libraries & headers
-├── runtime/             # android32 Horizon runtime layer (bionic, JNI, audio, EGL)
-├── launcher/            # Homebrew Menu NRO launcher with progress UI
-├── source/              # Port-specific hooks, JNI bindings, and input wrappers
-│   ├── port.c           # Main application loop, input loop, timing profiler
-│   ├── port_jni.c       # JNI method implementations for Gameloft engine
-│   ├── patch_game.c     # Native memory patches, engine crash fixes, hooks
-│   ├── egl_helper.c     # EGL context initialisation & config helper
-│   ├── imports.c        # Dynamic symbol resolution and shims
-│   └── nx_mutex_fix.c   # Horizon POSIX threading fixups
-└── tools/               # Auxiliary scripts and symbol definitions
-```
+- **Gameloft**: Original creators of *N.O.V.A. 3: Near Orbit Vanguard Alliance*.
+- **[aks796](https://github.com/aks796)**: For the [`android32`](https://github.com/aks796/android32) runtime, [`libnx32`](https://github.com/aks796/libnx32), and [`mesa32`](https://github.com/aks796/mesa32).
+- **Rinnegatamante**: For reference work on mobile ports and loader architecture.
+- **Switchbrew**: For `libnx` and tools.
 
 ---
 
-## Credits & Acknowledgements
+## License
 
-- **Gameloft**: Original developers of *N.O.V.A. 3: Near Orbit Vanguard Alliance*.
-- **aks796**: For the [android32](https://github.com/aks796/android32) runtime and [libnx32](https://github.com/aks796/libnx32) toolchain.
-- **Rinnegatamante**: For the reference work on PS Vita Android ports and kubridge ecosystem.
-- **devkitPro**: For the devkitARM toolchain.
-- **libnx**: For the Nintendo Switch homebrew library.
-
----
-
-## Disclaimer
-
-This repository does **not** contain any copyrighted game assets, proprietary code, or game data files from Gameloft. You must provide your own legally purchased copy of *N.O.V.A. 3* to play the game on Nintendo Switch.
+This project is licensed under the [MIT License](LICENSE).  
+N.O.V.A. 3 is a registered trademark of Gameloft. This project is not affiliated with or endorsed by Gameloft.
