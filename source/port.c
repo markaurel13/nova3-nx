@@ -82,6 +82,9 @@ static void *nova3_ads_current_weapon(void **manager_output) {
 static int nova3_ads_shoulder_held = 0;
 static int nova3_sprint_active = 0;
 static int nova3_sprint_cancelled_refresh_move = 0;
+// Tracks whether the in-game pause menu is currently open.
+// Toggled by Plus while a level is loaded. Cleared when the level unloads.
+static int nova3_ingame_menu_active = 0;
 
 static void nova3_cancel_sprint_if_active(void) {
     void *manager = NULL;
@@ -475,35 +478,62 @@ void port_run(void) {
         }
         
         // Standard Buttons (process buttons such as ZL and Weapon Change before stick movement updates)
-        if (nova_key_down) {
-            if (keys_down & HidNpadButton_A) nova_key_down(env, gl2jni_class, 23);
+        {
+            int level_loaded = (nova3_ads_level_get && nova3_ads_level_get() != NULL);
 
-            if (keys_down & HidNpadButton_Plus) nova_key_down(env, gl2jni_class, 108); // START
-            if (keys_down & HidNpadButton_Minus) nova3_change_weapon(env, gl2jni_class); // SELECT
-            if (keys_down & HidNpadButton_Up) nova_key_down(env, gl2jni_class, 19);
-            if (keys_down & HidNpadButton_Down) nova_key_down(env, gl2jni_class, 20);
-            if (keys_down & HidNpadButton_Left) nova_key_down(env, gl2jni_class, 21);
-            if (keys_down & HidNpadButton_Right) nova_key_down(env, gl2jni_class, 22);
-            if (keys_down & HidNpadButton_ZL) nova3_ads_hold_begin(); // L2 (ADS / Aim)
-            if (keys_down & HidNpadButton_ZR) {
-                nova3_cancel_sprint_if_active(); // Hip fire (ZR) cancels sprint
-                nova_key_down(env, gl2jni_class, 103); // R2
+            // Track pause menu toggle: Plus during active gameplay opens/closes the in-game menu
+            if (keys_down & HidNpadButton_Plus) {
+                if (level_loaded)
+                    nova3_ingame_menu_active = !nova3_ingame_menu_active;
+                else
+                    nova3_ingame_menu_active = 0; // Sanity: clear if no level
             }
-            if (keys_down & HidNpadButton_StickR) nova3_change_weapon(env, gl2jni_class); // R3 (Change Weapon)
-        }
-        if (nova_key_up) {
-            if (keys_up & HidNpadButton_A) nova_key_up(env, gl2jni_class, 23);
+            // Also clear ingame-menu flag when the level unloads (transition back to main menu)
+            if (!level_loaded)
+                nova3_ingame_menu_active = 0;
 
-            if (keys_up & HidNpadButton_Plus) nova_key_up(env, gl2jni_class, 108);
-            if (keys_up & HidNpadButton_Minus) nova_key_up(env, gl2jni_class, 109);
-            if (keys_up & HidNpadButton_Up) nova_key_up(env, gl2jni_class, 19);
-            if (keys_up & HidNpadButton_Down) nova_key_up(env, gl2jni_class, 20);
-            if (keys_up & HidNpadButton_Left) nova_key_up(env, gl2jni_class, 21);
-            if (keys_up & HidNpadButton_Right) nova_key_up(env, gl2jni_class, 22);
-            if (keys_up & HidNpadButton_ZL) nova3_ads_hold_end();
-            if (keys_up & HidNpadButton_ZR) nova_key_up(env, gl2jni_class, 103);
-            if (keys_up & HidNpadButton_StickR) nova_key_up(env, gl2jni_class, 109); // R3
+            // B button:
+            //   - In menus (no level, or in-game pause menu): KEYCODE_BACK (4) — single-shot navigation
+            //   - In active gameplay: handled below by the grenade buffer (key 227)
+            int b_is_menu = (!level_loaded || nova3_ingame_menu_active);
+            if (nova_key_down && (keys_down & HidNpadButton_B)) {
+                if (b_is_menu) nova_key_down(env, gl2jni_class, 4); // Back in menus
+            }
+            if (nova_key_up && (keys_up & HidNpadButton_B)) {
+                if (b_is_menu) nova_key_up(env, gl2jni_class, 4);
+            }
+
+            if (nova_key_down) {
+                if (keys_down & HidNpadButton_A) nova_key_down(env, gl2jni_class, 23);
+
+                if (keys_down & HidNpadButton_Plus) nova_key_down(env, gl2jni_class, 108); // START
+                if (keys_down & HidNpadButton_Minus) nova3_change_weapon(env, gl2jni_class); // SELECT
+                if (keys_down & HidNpadButton_Up) nova_key_down(env, gl2jni_class, 19);
+                if (keys_down & HidNpadButton_Down) nova_key_down(env, gl2jni_class, 20);
+                if (keys_down & HidNpadButton_Left) nova_key_down(env, gl2jni_class, 21);
+                if (keys_down & HidNpadButton_Right) nova_key_down(env, gl2jni_class, 22);
+                if (keys_down & HidNpadButton_ZL) nova3_ads_hold_begin(); // L2 (ADS / Aim)
+                if (keys_down & HidNpadButton_ZR) {
+                    nova3_cancel_sprint_if_active(); // Hip fire (ZR) cancels sprint
+                    nova_key_down(env, gl2jni_class, 103); // R2
+                }
+                if (keys_down & HidNpadButton_StickR) nova3_change_weapon(env, gl2jni_class); // R3 (Change Weapon)
+            }
+            if (nova_key_up) {
+                if (keys_up & HidNpadButton_A) nova_key_up(env, gl2jni_class, 23);
+
+                if (keys_up & HidNpadButton_Plus) nova_key_up(env, gl2jni_class, 108);
+                if (keys_up & HidNpadButton_Minus) nova_key_up(env, gl2jni_class, 109);
+                if (keys_up & HidNpadButton_Up) nova_key_up(env, gl2jni_class, 19);
+                if (keys_up & HidNpadButton_Down) nova_key_up(env, gl2jni_class, 20);
+                if (keys_up & HidNpadButton_Left) nova_key_up(env, gl2jni_class, 21);
+                if (keys_up & HidNpadButton_Right) nova_key_up(env, gl2jni_class, 22);
+                if (keys_up & HidNpadButton_ZL) nova3_ads_hold_end();
+                if (keys_up & HidNpadButton_ZR) nova_key_up(env, gl2jni_class, 103);
+                if (keys_up & HidNpadButton_StickR) nova_key_up(env, gl2jni_class, 109); // R3
+            }
         }
+
 
         static int left_horizontal_key = 0;
         static int left_vertical_key = 0;
@@ -566,75 +596,62 @@ void port_run(void) {
             reload_key_active = 0;
         }
 
-        // Grenade input buffering (ensures grenade throws reliably across sprint transitions)
-        // NOTE: Only active during gameplay (level loaded). In menus, B/R are handled by
-        // the game's own menu stack - injecting key 227 there causes phantom double-presses.
+        // Grenade input (B/R): single-shot buffer during active gameplay only.
+        // Guards: level must be loaded AND the in-game pause menu must NOT be open.
+        // (Pause-menu B is already handled above as KEYCODE_BACK.)
+        // Single-shot is safe because nova3_cancel_sprint_if_active() is synchronous,
+        // so the sprint-to-walk transition is done before the key is injected.
         static uint64_t grenade_buffer_until_ms = 0;
         static int grenade_key_active = 0;
 
         {
-            int in_gameplay_now = (nova3_ads_level_get && nova3_ads_level_get() != NULL);
+            int in_active_gameplay = (nova3_ads_level_get && nova3_ads_level_get() != NULL)
+                                     && !nova3_ingame_menu_active;
 
-            if (in_gameplay_now && (keys_down & (HidNpadButton_B | HidNpadButton_R))) {
+            if (in_active_gameplay && (keys_down & (HidNpadButton_B | HidNpadButton_R))) {
                 nova3_cancel_sprint_if_active(); // Grenade cancels sprint
-                grenade_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
+                grenade_buffer_until_ms = now_ms + 420; // Single-shot: hold key up for 420 ms window
             }
 
-            if (in_gameplay_now && now_ms < grenade_buffer_until_ms) {
-                uint64_t phase = (now_ms - (grenade_buffer_until_ms - 420)) % 70;
-                if (phase < 45) {
-                    if (!grenade_key_active) {
-                        if (nova_key_down) nova_key_down(env, gl2jni_class, 227);
-                        grenade_key_active = 1;
-                    }
-                } else {
-                    if (grenade_key_active) {
-                        if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
-                        grenade_key_active = 0;
-                    }
+            if (in_active_gameplay && now_ms < grenade_buffer_until_ms) {
+                // Single-shot: fire key_down once, keep held until buffer expires
+                if (!grenade_key_active) {
+                    if (nova_key_down) nova_key_down(env, gl2jni_class, 227);
+                    grenade_key_active = 1;
                 }
             } else if (grenade_key_active) {
-                // Always clean up if we exit gameplay mid-buffer or buffer expires
+                // Buffer expired or we left active gameplay: release key cleanly
                 if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
                 grenade_key_active = 0;
                 grenade_buffer_until_ms = 0;
             }
         }
 
-        // Ability input buffering (ensures ability triggers reliably across sprint transitions)
-        // NOTE: Only active during gameplay (level loaded). In menus, Y/L are handled by
-        // the game's own menu stack.
+        // Ability input (Y/L): same single-shot pattern as grenade.
         static uint64_t ability_buffer_until_ms = 0;
         static int ability_key_active = 0;
 
         {
-            int in_gameplay_now = (nova3_ads_level_get && nova3_ads_level_get() != NULL);
+            int in_active_gameplay = (nova3_ads_level_get && nova3_ads_level_get() != NULL)
+                                     && !nova3_ingame_menu_active;
 
-            if (in_gameplay_now && (keys_down & (HidNpadButton_Y | HidNpadButton_L))) {
+            if (in_active_gameplay && (keys_down & (HidNpadButton_Y | HidNpadButton_L))) {
                 nova3_cancel_sprint_if_active(); // Ability cancels sprint
-                ability_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
+                ability_buffer_until_ms = now_ms + 420;
             }
 
-            if (in_gameplay_now && now_ms < ability_buffer_until_ms) {
-                uint64_t phase = (now_ms - (ability_buffer_until_ms - 420)) % 70;
-                if (phase < 45) {
-                    if (!ability_key_active) {
-                        if (nova_key_down) nova_key_down(env, gl2jni_class, 100);
-                        ability_key_active = 1;
-                    }
-                } else {
-                    if (ability_key_active) {
-                        if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
-                        ability_key_active = 0;
-                    }
+            if (in_active_gameplay && now_ms < ability_buffer_until_ms) {
+                if (!ability_key_active) {
+                    if (nova_key_down) nova_key_down(env, gl2jni_class, 100);
+                    ability_key_active = 1;
                 }
             } else if (ability_key_active) {
-                // Always clean up if we exit gameplay mid-buffer or buffer expires
                 if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
                 ability_key_active = 0;
                 ability_buffer_until_ms = 0;
             }
         }
+
 
         // Right Stick Camera (Vita acceleration with inverted Y)
         if (nova_right_stick) {
