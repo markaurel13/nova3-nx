@@ -609,11 +609,10 @@ void port_run(void) {
             reload_key_active = 0;
         }
 
-        // Grenade input (B/R): single-shot buffer during active gameplay only.
-        // Guards: level must be loaded AND the in-game pause menu must NOT be open.
-        // (Pause-menu B is already handled above as KEYCODE_BACK.)
-        // Single-shot is safe because nova3_cancel_sprint_if_active() is synchronous,
-        // so the sprint-to-walk transition is done before the key is injected.
+        // Grenade input (B/R): cycling buffer during active gameplay only.
+        // Cycles key 227 ON/OFF every 70 ms for 420 ms so the engine picks it up
+        // even if the first pulse lands during the sprint-end animation.
+        // Guard: level must be loaded AND the in-game pause menu must NOT be open.
         static uint64_t grenade_buffer_until_ms = 0;
         static int grenade_key_active = 0;
 
@@ -623,24 +622,30 @@ void port_run(void) {
 
             if (in_active_gameplay && (keys_down & (HidNpadButton_B | HidNpadButton_R))) {
                 nova3_cancel_sprint_if_active(); // Grenade cancels sprint
-                grenade_buffer_until_ms = now_ms + 420; // Single-shot: hold key up for 420 ms window
+                grenade_buffer_until_ms = now_ms + 420;
             }
 
             if (in_active_gameplay && now_ms < grenade_buffer_until_ms) {
-                // Single-shot: fire key_down once, keep held until buffer expires
-                if (!grenade_key_active) {
-                    if (nova_key_down) nova_key_down(env, gl2jni_class, 227);
-                    grenade_key_active = 1;
+                uint64_t phase = (now_ms - (grenade_buffer_until_ms - 420)) % 70;
+                if (phase < 45) {
+                    if (!grenade_key_active) {
+                        if (nova_key_down) nova_key_down(env, gl2jni_class, 227);
+                        grenade_key_active = 1;
+                    }
+                } else {
+                    if (grenade_key_active) {
+                        if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
+                        grenade_key_active = 0;
+                    }
                 }
             } else if (grenade_key_active) {
-                // Buffer expired or we left active gameplay: release key cleanly
                 if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
                 grenade_key_active = 0;
                 grenade_buffer_until_ms = 0;
             }
         }
 
-        // Ability input (Y/L): same single-shot pattern as grenade.
+        // Ability input (Y/L): same cycling pattern as grenade.
         static uint64_t ability_buffer_until_ms = 0;
         static int ability_key_active = 0;
 
@@ -654,9 +659,17 @@ void port_run(void) {
             }
 
             if (in_active_gameplay && now_ms < ability_buffer_until_ms) {
-                if (!ability_key_active) {
-                    if (nova_key_down) nova_key_down(env, gl2jni_class, 100);
-                    ability_key_active = 1;
+                uint64_t phase = (now_ms - (ability_buffer_until_ms - 420)) % 70;
+                if (phase < 45) {
+                    if (!ability_key_active) {
+                        if (nova_key_down) nova_key_down(env, gl2jni_class, 100);
+                        ability_key_active = 1;
+                    }
+                } else {
+                    if (ability_key_active) {
+                        if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
+                        ability_key_active = 0;
+                    }
                 }
             } else if (ability_key_active) {
                 if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
@@ -664,6 +677,7 @@ void port_run(void) {
                 ability_buffer_until_ms = 0;
             }
         }
+
 
 
         // Right Stick Camera (Vita acceleration with inverted Y)
