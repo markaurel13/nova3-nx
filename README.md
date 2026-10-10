@@ -43,44 +43,42 @@ This port runs the original ARMv7-A NEON native library (`libNOVA3_neon.so`) dir
 
 | Nintendo Switch Button | Action |
 |:---|:---|
-| **Left Stick** | Moverse / Navigation |
-| **Right Stick** | Mirar / Apuntar cámara (Camera Aim) |
-| **L3 (Click Stick Izquierdo)** | **Correr / Sprint** (Toggle on/off) |
-| **L1 (L)** | **Cambiar de Arma** (Next Weapon) |
-| **Y** | **Habilidad Especial** (Special Ability) |
-| **ZL** | **Apuntar con la mira (ADS)** (Hold to Aim) |
-| **ZR** | **Disparar** (Primary Fire / Hip Fire) |
-| **R (R1) / B** | **Lanzar Granada** (Grenade) |
-| **X** | **Recargar** (Reload) |
-| **A** | **Saltar / Confirmar** (Jump / Confirm) |
-| **Plus (+)** | Menú de Pausa (Pause Menu) |
-| **Minus (-)** | Cambiar de Arma alternativo / Objetivos |
-| **D-Pad** | Movimiento direccional |
-| **Pantalla Táctil** | Interacción nativa con la interfaz táctil |
+| **Left Stick** | Move |
+| **Right Stick** | Camera Aim |
+| **L3** | **Sprint** |
+| **L** | Change Weapon |
+| **Y** | Special Ability |
+| **ZL** | Aim |
+| **ZR** | Shoot |
+| **R / B** | **Grenade** |
+| **X** | **Reload** (Reload) |
+| **A** | Jump / Confirm |
+| **Plus (+)** | Pause Menu |
+| **Minus (-)** | Alternative Change weapon |
+| **D-Pad** | Directional movement |
 
 ---
 
 ## Requirements
 
 To run this port, you need game assets from an official copy of **N.O.V.A. 3** for Android:
-- Target version: **v1.0.7** (versionCode `1070` / `com.gameloft.android.ANMP.GloftN3HM`).
-- The game's native library: `libNOVA3_neon.so`.
-- The game's OBB data archives:
-  - `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb` (Base assets)
-  - `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb` (Update patch assets)
+- Version: **v1.0.7**.
+- The game's APK.
+- The game's OBB files
+- The .nro file from the repository
 
 ---
 
 ## Installation Guide
 
-### Step 1: Extract Game Assets (OBB 1050 + 1070)
+### Step 1: Extract Game Assets
 
 The OBB files are standard ZIP archives containing the game data.
 
-1. Open/extract `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb` using 7-Zip, WinRAR, or your system unzip tool.
-2. Open/extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb`.
-3. **Important (Overwrite)**: Merge the extracted contents of **1070** into the extracted folder of **1050**, choosing **Overwrite all** so the updated 1070 patch files replace the older 1050 files.
-4. Locate the resulting `files/` folder (which contains archives like `weapons_stream.gla`, `actors_stream.gla`, `.bdae`, `.etc`, etc.).
+1. Create a folder on your PC named "files".
+2. Open/extract `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb` into "files" using 7-Zip, WinRAR, or your system unzip tool.
+3. Now Open/extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb`into "files" using 7-Zip, WinRAR, or your system unzip tool.
+4. **Important (Overwrite)**: Merge the extracted contents of **1070** into the extracted folder of **1050**, choosing **Overwrite all** so the updated 1070 patch files replace the older 1050 files.
 
 ### Step 2: Extract the Native Library
 
@@ -90,7 +88,7 @@ From your `nova3.apk` (v1.0.7):
 
 ### Step 3: Copy Files to MicroSD
 
-Place the files onto your Nintendo Switch MicroSD card following this exact directory layout:
+Create a folder named "nova3" on /switch/ and place the files onto your Nintendo Switch MicroSD card following this exact directory layout:
 
 ```
 sdmc:/switch/nova3/
@@ -98,34 +96,29 @@ sdmc:/switch/nova3/
 ├── libNOVA3_neon.so
 └── data/
     └── files/
-        ├── sounds_hi_p1.gla
-        ├── sounds_hi_p2.gla
-        ├── sounds_hi_p3.gla
-        ├── weapons_stream.gla
-        ├── actors_stream.gla
         ├── ... (all extracted OBB assets)
 ```
 
-> **Note**: Also keep a copy of `nova3.apk` in `sdmc:/switch/nova3/nova3.apk` if prompted.
-
 ### Step 4: Launching the Game
 
-Launch **`nova3.nro`** from the **Homebrew Menu** via **Title Redirection** (hold R while launching any installed Switch game) to grant full RAM access. Do not use Applet Mode (Album).
+Launch **`nova3.nro`** from the **Homebrew Menu** via **Title Redirection** (hold R while launching any installed Switch game) to grant full RAM access. Do not use Applet Mode (Album) and don't forget to create a forwarder using sphaira (The game is 32 bits so you need this in order to play it).
 
 ---
 
 ## Recommended Overclock Settings (sys-clk)
 
-N.O.V.A. 3 runs very well on Nintendo Switch, but the Tegra X1 dynamic governor may aggressively downclock or put the GPU into sleep mode during frames with heavy CPU translation spikes, causing artificial frame stutters.
+N.O.V.A. 3 runs very well on Stock clock, but the Tegra X1 dynamic governor may aggressively downclock or put the GPU into sleep mode during frames with heavy CPU translation spikes, causing artificial frame stutters (THis is because the GPU is not used at all bc the game's graphics requirements are pretty slight so it's practically "Sleeping" most of the time because the game barely consumes any GPU).
 
-To ensure consistent 60 FPS performance without draining battery, we recommend setting a modest, stable clock profile via **sys-clk**:
+To ensure consistent 60 FPS performance without draining battery, we recommend setting a modest, stable clock profile via **sys-clk** where we downclock GPU in return of more CPU (This is completely optional).
 
 ```ini
 [0100777777777000]
 handheld_cpu=1224
 handheld_gpu=230
+hadheld_ram=stock
 docked_cpu=1224
 docked_gpu=230
+docked_ram=stock
 ```
 
 ### Why these frequencies?
