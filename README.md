@@ -60,9 +60,10 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 3. Open/extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb` into the **same** `files` folder.
 4. **Important**: When prompted, choose **Replace / Overwrite all** so the newer 1070 files replace some older 1050 files.
 
-### 2. Extract the Game Library
-1. Open your `nova3.apk` with 7-Zip or WinRAR (or rename it to `nova3.zip`).
-2. Go into `lib/armeabi-v7a/` and extract `libNOVA3_neon.so`.
+### 2. Extract the Game Library & Copy APK
+1. Copy your `nova3.apk` directly into your Switch folder (`sdmc:/switch/nova3/nova3.apk`).
+2. Open your `nova3.apk` with 7-Zip or WinRAR (or rename it to `nova3.zip`).
+3. Go into `lib/armeabi-v7a/` and extract `libNOVA3_neon.so`.
 
 ### 3. Copy to MicroSD
 1. Download `nova3.nro` from the [Releases](#) section.
@@ -72,15 +73,17 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 ```text
 sdmc:/switch/nova3/
 ├── nova3.nro
+├── nova3.apk
 ├── libNOVA3_neon.so
 └── data/
-    └── files/ (Paste the "files" folder we created on Step 1 here, so we would have data/files)
+    └── files/ (Paste the "files" folder from Step 1 here, so you have data/files/)
 ```
 
-### 4. Launching the Game (You need to do this because it's a 32bits game)
+### 4. Launching the Game (32-bit execution)
 1. Open **Sphaira** on your Switch.
 2. Select **N.O.V.A. 3** and choose **Install Forwarder**.
-3. Go back to your Switch HOME Menu and start the game directly from its icon!*
+3. Go back to your Switch HOME Menu and start the game directly from its icon!  
+*(Alternatively, you can launch `nova3.nro` through Title Redirection by holding R while opening any installed Switch game).*
 
 ---
 
@@ -121,7 +124,7 @@ docked_gpu=230
 * **CPU @ 1224 MHz**: Gives extra headroom for loading and smooth asset streaming.
 * **GPU @ 230 MHz**: Keeps the GPU constantly awake at a cool, battery-friendly baseline (stock handheld is 307–384 MHz, so 230 MHz is very low and safe).
 
-We are exchange -25% GPU for +20% CPU, so the battery consumption will be the same as if you were in stock clock. even less
+We are trading -25% GPU clock for +20% CPU clock, so battery consumption remains roughly the same as stock clocks (or even less).
 
 ---
 
@@ -136,8 +139,8 @@ We are exchange -25% GPU for +20% CPU, so the battery consumption will be the sa
 
 1. **Clone the repository:**
    ```bash
-   git clone --recursive https://github.com/markaurel13/nova3-switch.git
-   cd nova3-switch
+   git clone --recursive https://github.com/markaurel13/nova3-nx.git
+   cd nova3-nx
    ```
 
 2. **Set up `libnx32` and `mesa32`:**
@@ -173,7 +176,7 @@ We are exchange -25% GPU for +20% CPU, so the battery consumption will be the sa
 - **[aks796](https://github.com/aks796)**: For the [`android32`](https://github.com/aks796/android32) runtime, [`libnx32`](https://github.com/aks796/libnx32), and [`mesa32`](https://github.com/aks796/mesa32).
 - **Rinnegatamante**: For reference work on mobile ports and loader architecture.
 - **Switchbrew**: For `libnx` and tools.
-- **SpliffCurryBeats** For reference work (This work was inspired by his PS VITA N.O.V.A 3 port
+- **SpliffCurryBeats**: For reference work (this project was inspired by his PS Vita N.O.V.A. 3 port).
 
 ---
 
