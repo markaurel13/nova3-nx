@@ -471,6 +471,46 @@ static void disable_engine_touch_doubletap_sprint(void) {
     uintptr_t target_dt_time = (uintptr_t)so_mod.load_virtbase + 0x00d780b0;
     so_patch_code((void *)target_dt_time, &neg_one, 4);
 
+    // 5. NOP the branch in WalkJoystick::RaiseMoveEvent that triggers Event 16 (EvDoubleTap / Rush).
+    //    Original: 327120: da000021 (ble 3271ac)
+    //    When flicking the left stick upwards twice quickly, lr <= 149 and the engine branched
+    //    to 3271ac to fire Event 16 (EvGeneric) via EventManager::raiseSync, which triggers rush.
+    //    NOPing this branch ensures WalkJoystick NEVER raises Event 16 under any circumstance!
+    uintptr_t target_move_branch = (uintptr_t)so_mod.load_virtbase + 0x00327120U;
+    so_patch_code((void *)target_move_branch, &arm_nop, 4);
+
+    // 6. As an absolute guarantee, NOP the handlers for Event 16 in CPlayerControl::onEvent:
+    //    1bf214: 0a000339 (beq 1bff00) -> NOP (skip rush start trigger on Event 16)
+    //    1c0e00: 03a03001 (moveq r3, #1) -> NOP (don't set rush flag)
+    //    1c0e04: 05c43034 (strbeq r3, [r4, #52]) -> NOP (don't write player_control[0x34])
+    uintptr_t target_ctrl_ev16_a = (uintptr_t)so_mod.load_virtbase + 0x001bf214U;
+    so_patch_code((void *)target_ctrl_ev16_a, &arm_nop, 4);
+
+    uintptr_t target_ctrl_ev16_b = (uintptr_t)so_mod.load_virtbase + 0x001c0e00U;
+    so_patch_code((void *)target_ctrl_ev16_b, &arm_nop, 4);
+
+    uintptr_t target_ctrl_ev16_c = (uintptr_t)so_mod.load_virtbase + 0x001c0e04U;
+    so_patch_code((void *)target_ctrl_ev16_c, &arm_nop, 4);
+
+    // 7. In PlayerComponent::ComputeControlVelocity (Path A at 0x1dda64):
+    //    Original: 1dda64: e59f3198 (ldr r3, [pc, #408] -> &m_bRushbyDoubleTouch)
+    //    If player[0x45] == 0 (gamepad sprint not active), the engine checked m_bRushbyDoubleTouch.
+    //    If m_bRushbyDoubleTouch was 1, it fell through to 0x1dda78 and called StartRush!
+    //    Patch 0x1dda64 with "b 0x1ddc18" (0xea00006b): unconditionally branch to normal walk
+    //    (0x1ddc18, which also calls EndRush), completely bypassing m_bRushbyDoubleTouch!
+    uint32_t b_normal_walk = 0xea00006b;
+    uintptr_t target_skip_rush_doubletouch = (uintptr_t)so_mod.load_virtbase + 0x001dda64U;
+    so_patch_code((void *)target_skip_rush_doubletouch, &b_normal_walk, 4);
+
+    // 8. In PlayerComponent::ComputeControlVelocity (Path B at 0x1de3d0):
+    //    Original: 1de3d0: 1afffda8 (bne 1dda78)
+    //    This is the alternative control scheme path in ComputeControlVelocity. If player[0x44] == 1,
+    //    it branched back to 0x1dda78 to StartRush!
+    //    NOPing this branch ensures Path B also exclusively honors player[0x45] (L3 gamepad sprint)
+    //    and branches to normal walk (0x1ddc18) when player[0x45] == 0!
+    uintptr_t target_ctrl_scheme_b = (uintptr_t)so_mod.load_virtbase + 0x001de3d0U;
+    so_patch_code((void *)target_ctrl_scheme_b, &arm_nop, 4);
+
     so_flush_caches(&so_mod);
     runtime_trace("Disabled engine double-tap and touch sprint detection in PlayerComponent & WalkJoystick");
 }

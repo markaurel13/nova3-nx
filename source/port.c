@@ -52,6 +52,7 @@ typedef void (*nova3_rush_tutorial_skip_fn)(void *tutorial);
 
 static nova3_level_get_fn nova3_ads_level_get = NULL;
 static nova3_get_player_component_fn nova3_ads_get_player_component = NULL;
+static uint8_t *nova3_rush_by_double_touch = NULL;
 static nova3_weapon_end_rush_fn nova3_weapon_end_rush = NULL;
 static nova3_weapon_manager_aim_fn nova3_weapon_manager_aim = NULL;
 static nova3_weapon_manager_unaim_fn nova3_ads_weapon_manager_unaim = NULL;
@@ -105,6 +106,9 @@ static void nova3_cancel_sprint_if_active(void) {
     if (player) {
         player[0x44U] = 0;
         player[0x45U] = 0;
+    }
+    if (nova3_rush_by_double_touch) {
+        *nova3_rush_by_double_touch = 0;
     }
 
     if (was_sprinting) {
@@ -322,6 +326,8 @@ void port_run(void) {
     nova3_weapon_manager_set_next_weapon = (nova3_weapon_manager_set_next_weapon_fn)(so_mod.load_virtbase + 0x0058F7A0U);
     // CLevelTutorialRush::Skip — re-enables rush control and clears tutorial state (mission 3 sprint tutorial)
     nova3_rush_tutorial_skip = (nova3_rush_tutorial_skip_fn)(so_mod.load_virtbase + 0x002D69B4U);
+    nova3_rush_by_double_touch = (uint8_t *)(so_mod.load_virtbase + 0x00D9175CU);
+    if (nova3_rush_by_double_touch) *nova3_rush_by_double_touch = 0;
 
 
 
@@ -476,6 +482,7 @@ void port_run(void) {
                 } else {
                     player[0x44U] = 0;  // Ensure touch rush state is cleared
                     player[0x45U] = 0;  // Deactivate controller rush state
+                    if (nova3_rush_by_double_touch) *nova3_rush_by_double_touch = 0;
                     rush_tut_skipped = 0; // Reset for next sprint session
                 }
             } else {
