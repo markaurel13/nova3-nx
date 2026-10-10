@@ -567,57 +567,73 @@ void port_run(void) {
         }
 
         // Grenade input buffering (ensures grenade throws reliably across sprint transitions)
+        // NOTE: Only active during gameplay (level loaded). In menus, B/R are handled by
+        // the game's own menu stack - injecting key 227 there causes phantom double-presses.
         static uint64_t grenade_buffer_until_ms = 0;
         static int grenade_key_active = 0;
 
-        if (keys_down & (HidNpadButton_B | HidNpadButton_R)) {
-            nova3_cancel_sprint_if_active(); // Grenade cancels sprint
-            grenade_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
-        }
+        {
+            int in_gameplay_now = (nova3_ads_level_get && nova3_ads_level_get() != NULL);
 
-        if (now_ms < grenade_buffer_until_ms) {
-            uint64_t phase = (now_ms - (grenade_buffer_until_ms - 420)) % 70;
-            if (phase < 45) {
-                if (!grenade_key_active) {
-                    if (nova_key_down) nova_key_down(env, gl2jni_class, 227);
-                    grenade_key_active = 1;
-                }
-            } else {
-                if (grenade_key_active) {
-                    if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
-                    grenade_key_active = 0;
-                }
+            if (in_gameplay_now && (keys_down & (HidNpadButton_B | HidNpadButton_R))) {
+                nova3_cancel_sprint_if_active(); // Grenade cancels sprint
+                grenade_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
             }
-        } else if (grenade_key_active && !(padGetButtons(&pad) & (HidNpadButton_B | HidNpadButton_R))) {
-            if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
-            grenade_key_active = 0;
+
+            if (in_gameplay_now && now_ms < grenade_buffer_until_ms) {
+                uint64_t phase = (now_ms - (grenade_buffer_until_ms - 420)) % 70;
+                if (phase < 45) {
+                    if (!grenade_key_active) {
+                        if (nova_key_down) nova_key_down(env, gl2jni_class, 227);
+                        grenade_key_active = 1;
+                    }
+                } else {
+                    if (grenade_key_active) {
+                        if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
+                        grenade_key_active = 0;
+                    }
+                }
+            } else if (grenade_key_active) {
+                // Always clean up if we exit gameplay mid-buffer or buffer expires
+                if (nova_key_up) nova_key_up(env, gl2jni_class, 227);
+                grenade_key_active = 0;
+                grenade_buffer_until_ms = 0;
+            }
         }
 
         // Ability input buffering (ensures ability triggers reliably across sprint transitions)
+        // NOTE: Only active during gameplay (level loaded). In menus, Y/L are handled by
+        // the game's own menu stack.
         static uint64_t ability_buffer_until_ms = 0;
         static int ability_key_active = 0;
 
-        if (keys_down & (HidNpadButton_Y | HidNpadButton_L)) {
-            nova3_cancel_sprint_if_active(); // Ability cancels sprint
-            ability_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
-        }
+        {
+            int in_gameplay_now = (nova3_ads_level_get && nova3_ads_level_get() != NULL);
 
-        if (now_ms < ability_buffer_until_ms) {
-            uint64_t phase = (now_ms - (ability_buffer_until_ms - 420)) % 70;
-            if (phase < 45) {
-                if (!ability_key_active) {
-                    if (nova_key_down) nova_key_down(env, gl2jni_class, 100);
-                    ability_key_active = 1;
-                }
-            } else {
-                if (ability_key_active) {
-                    if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
-                    ability_key_active = 0;
-                }
+            if (in_gameplay_now && (keys_down & (HidNpadButton_Y | HidNpadButton_L))) {
+                nova3_cancel_sprint_if_active(); // Ability cancels sprint
+                ability_buffer_until_ms = now_ms + 420; // Buffer for 420 ms
             }
-        } else if (ability_key_active && !(padGetButtons(&pad) & (HidNpadButton_Y | HidNpadButton_L))) {
-            if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
-            ability_key_active = 0;
+
+            if (in_gameplay_now && now_ms < ability_buffer_until_ms) {
+                uint64_t phase = (now_ms - (ability_buffer_until_ms - 420)) % 70;
+                if (phase < 45) {
+                    if (!ability_key_active) {
+                        if (nova_key_down) nova_key_down(env, gl2jni_class, 100);
+                        ability_key_active = 1;
+                    }
+                } else {
+                    if (ability_key_active) {
+                        if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
+                        ability_key_active = 0;
+                    }
+                }
+            } else if (ability_key_active) {
+                // Always clean up if we exit gameplay mid-buffer or buffer expires
+                if (nova_key_up) nova_key_up(env, gl2jni_class, 100);
+                ability_key_active = 0;
+                ability_buffer_until_ms = 0;
+            }
         }
 
         // Right Stick Camera (Vita acceleration with inverted Y)
