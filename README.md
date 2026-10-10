@@ -58,7 +58,7 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 1. Create a new folder on your computer named `files`.
 2. Open/extract `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb` into your `files` folder using 7-Zip or WinRAR.
 3. Open/extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb` into the **same** `files` folder.
-4. **Important**: When prompted, choose **Replace / Overwrite all** so the newer 1070 files replace the older 1050 files.
+4. **Important**: When prompted, choose **Replace / Overwrite all** so the newer 1070 files replace some older 1050 files.
 
 ### 2. Extract the Game Library
 1. Open your `nova3.apk` with 7-Zip or WinRAR (or rename it to `nova3.zip`).
@@ -74,15 +74,13 @@ sdmc:/switch/nova3/
 ├── nova3.nro
 ├── libNOVA3_neon.so
 └── data/
-    └── files/
-        └── (paste all files from your "files" folder here)
+    └── files/ (Paste the "files" folder we created on Step 1 here, so we would have data/files)
 ```
 
-### 4. Launching the Game
+### 4. Launching the Game (You need to do this because it's a 32bits game)
 1. Open **Sphaira** on your Switch.
 2. Select **N.O.V.A. 3** and choose **Install Forwarder**.
-3. Go back to your Switch HOME Menu and start the game directly from its icon!  
-*(Alternatively, you can launch `nova3.nro` through Title Redirection by holding R while opening any Switch game).*
+3. Go back to your Switch HOME Menu and start the game directly from its icon!*
 
 ---
 
@@ -106,9 +104,9 @@ sdmc:/switch/nova3/
 
 ---
 
-## Recommended Overclock (sys-clk) — Optional
+## Recommended sys-clk config — Optional
 
-The game runs great on stock clocks, but the Switch power manager can put the GPU into "sleep mode" (76 MHz) during light scenes because the game barely uses any GPU power, which can cause small hiccups.
+The game runs great on stock clocks, but the Switch power manager can put the GPU into "sleep mode" during light scenes because the game barely uses any GPU power, which can cause small hiccups.
 
 To lock the game at a super smooth 60 FPS without draining extra battery, you can optionally set this profile in **sys-clk**:
 
@@ -122,6 +120,8 @@ docked_gpu=230
 
 * **CPU @ 1224 MHz**: Gives extra headroom for loading and smooth asset streaming.
 * **GPU @ 230 MHz**: Keeps the GPU constantly awake at a cool, battery-friendly baseline (stock handheld is 307–384 MHz, so 230 MHz is very low and safe).
+
+We are exchange -25% GPU for +20% CPU, so the battery consumption will be the same as if you were in stock clock. even less
 
 ---
 
@@ -173,6 +173,7 @@ docked_gpu=230
 - **[aks796](https://github.com/aks796)**: For the [`android32`](https://github.com/aks796/android32) runtime, [`libnx32`](https://github.com/aks796/libnx32), and [`mesa32`](https://github.com/aks796/mesa32).
 - **Rinnegatamante**: For reference work on mobile ports and loader architecture.
 - **Switchbrew**: For `libnx` and tools.
+- **SpliffCurryBeats** For reference work (This work was inspired by his PS VITA N.O.V.A 3 port
 
 ---
 
