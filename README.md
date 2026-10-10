@@ -45,7 +45,7 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 ### For Players
 - A Nintendo Switch running **Atmosphère** custom firmware.
 - The [Sphaira](https://github.com/ITotalJustice/sphaira) homebrew menu (installing Sphaira's forwarder is required so the system launches it in 32-bit mode).
-- A copy of **nova3.apk** (v1.0.7, versionCode `1070`).
+- A copy of **nova3.apk** (v1.0.7 or versionCode `1070`).
 - The game's two OBB data files:
   - `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb`
   - `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb`
@@ -75,7 +75,7 @@ sdmc:/switch/nova3/
 ├── nova3.nro
 ├── nova3.apk
 ├── libNOVA3_neon.so
-└── data/
+└── data/ (if data folder doesn't exist just create it)
     └── files/ (Paste the "files" folder from Step 1 here, so you have data/files/)
 ```
 
@@ -83,7 +83,6 @@ sdmc:/switch/nova3/
 1. Open **Sphaira** on your Switch.
 2. Select **N.O.V.A. 3** and choose **Install Forwarder**.
 3. Go back to your Switch HOME Menu and start the game directly from its icon!  
-*(Alternatively, you can launch `nova3.nro` through Title Redirection by holding R while opening any installed Switch game).*
 
 ---
 
