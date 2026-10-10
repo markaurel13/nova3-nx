@@ -538,21 +538,33 @@ void port_run(void) {
         static int left_horizontal_key = 0;
         static int left_vertical_key = 0;
         static int s_retrigger_move_frames = 0;
+        // When set, we must re-issue the movement key_down even if the stick value
+        // hasn't changed (the sprint cancel released them artificially).
+        static int s_retrigger_pending = 0;
 
-        // When sprint is cancelled by aiming (ZL) or changing weapons, release movement
-        // for 1 frame so Gameloft processes the release and seamlessly engages walking
-        // on the next frame without requiring the player to physically release the stick.
+        // When sprint is cancelled by aiming/action, release movement keys this frame
+        // so Gameloft processes the sprint-end, then re-issue them next frame.
         if (nova3_sprint_cancelled_refresh_move) {
             nova3_sprint_cancelled_refresh_move = 0;
             if (left_vertical_key && nova_key_up) nova_key_up(env, gl2jni_class, left_vertical_key);
             if (left_horizontal_key && nova_key_up) nova_key_up(env, gl2jni_class, left_horizontal_key);
             left_vertical_key = 0;
             left_horizontal_key = 0;
-            s_retrigger_move_frames = 1;
+            s_retrigger_move_frames = 1;  // skip change-detection for 1 frame
+            s_retrigger_pending = 1;      // then unconditionally re-issue on next frame
         }
 
         if (s_retrigger_move_frames > 0) {
+            // This frame: keys are released, engine processes sprint-end.
             s_retrigger_move_frames--;
+        } else if (s_retrigger_pending) {
+            // Next frame: unconditionally re-issue whatever the stick is currently holding,
+            // regardless of whether left_*_key tracks a change or not.
+            s_retrigger_pending = 0;
+            if (horizontal_key && nova_key_down) nova_key_down(env, gl2jni_class, horizontal_key);
+            left_horizontal_key = horizontal_key;
+            if (vertical_key && nova_key_down) nova_key_down(env, gl2jni_class, vertical_key);
+            left_vertical_key = vertical_key;
         } else {
             if (horizontal_key != left_horizontal_key) {
                 if (left_horizontal_key && nova_key_up) nova_key_up(env, gl2jni_class, left_horizontal_key);
@@ -565,6 +577,7 @@ void port_run(void) {
                 left_vertical_key = vertical_key;
             }
         }
+
 
         // Reload input buffering (handles weapon unaim transition seamlessly)
         static uint64_t reload_buffer_until_ms = 0;
