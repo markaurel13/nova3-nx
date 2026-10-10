@@ -66,7 +66,7 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 3. Go into `lib/armeabi-v7a/` and extract `libNOVA3_neon.so`.
 
 ### 3. Copy to MicroSD
-1. Download `nova3.nro` from the [Releases](https://github.com/markaurel13/nova3/releases) section.   
+1. Download `nova3.nro` from the [Releases](https://github.com/markaurel13/nova3-nx/releases) section.   
 2. On your Switch SD card, create the folder `sdmc:/switch/nova3/`.
 3. Copy your files so the structure looks exactly like this:
 
