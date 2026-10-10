@@ -232,7 +232,6 @@ static void install_post_effects_null_guards(void) {
             pre_draw_expected, (uintptr_t)&nova3_post_effects_pre_draw_guard,
             "N.O.V.A. 3 PostEffects::PreDraw preimage changed.");
 
-    armICacheInvalidate((void *)((uintptr_t)jitGetRxAddr(&g_jit) + offset), words_size);
     so_flush_caches(&so_mod);
     runtime_trace(
         "NOVA3 null-safe post-effects surface installed thirteen external entry guards");
@@ -284,18 +283,6 @@ static void install_null_safe_collada_scene_consumers(void) {
         0xE59D3004U, /* ldr r3, [sp, #4] */
         0xEAFFFFE4U  /* b 0x00107970: release if needed, then return */
     };
-    static const uint32_t expected_skybox_scene_use[] = {
-        0xE5943104U, /* ldr r3, [r4, #260] */
-        0xE28D6048U, /* add r6, sp, #72 */
-        0xE1A00003U, /* mov r0, r3 */
-        0xE5933000U  /* ldr r3, [r3] */
-    };
-    static const uint32_t replacement_skybox_scene_use[] = {
-        0xE5940104U, /* ldr r0, [r4, #260]: preserve scene as call receiver */
-        0xE3500000U, /* cmp r0, #0 */
-        0x15903000U, /* ldrne r3, [r0]: restore the scene vtable load */
-        0x0A000015U  /* beq shared constructor cleanup */
-    };
     static const uint32_t expected_animator_sampler_empty_scene_exit =
         0x0A000007U; /* beq continue constructing animator sets */
     static const uint32_t replacement_animator_sampler_empty_scene_exit =
@@ -328,12 +315,6 @@ static void install_null_safe_collada_scene_consumers(void) {
         {NOVA3_LASER_SET_BDAE_FAILURE_CLEANUP_OFFSET,
          expected_set_bdae_cleanup, replacement_set_bdae_cleanup,
          sizeof(expected_set_bdae_cleanup)},
-        {NOVA3_SKYBOX_CTOR_A_SCENE_USE_OFFSET,
-         expected_skybox_scene_use, replacement_skybox_scene_use,
-         sizeof(expected_skybox_scene_use)},
-        {NOVA3_SKYBOX_CTOR_B_SCENE_USE_OFFSET,
-         expected_skybox_scene_use, replacement_skybox_scene_use,
-         sizeof(expected_skybox_scene_use)},
         {NOVA3_ANIMATOR_SAMPLER_CTOR_A_EMPTY_SCENE_EXIT_OFFSET,
          &expected_animator_sampler_empty_scene_exit,
          &replacement_animator_sampler_empty_scene_exit,
@@ -361,12 +342,69 @@ static void install_null_safe_collada_scene_consumers(void) {
             fatal_error("Could not install null-safe Collada scene consumers.");
     }
 
-    armICacheInvalidate((void *)((uintptr_t)jitGetRxAddr(&g_jit) + offset), words_size);
+    /* Install null-safe skybox trampolines that correctly preserve r6 = sp + 72 */
+    static const uint32_t expected_skybox_preimage[4] = {
+        0xE5943104U, /* ldr r3, [r4, #260] */
+        0xE28D6048U, /* add r6, sp, #72 */
+        0xE1A00003U, /* mov r0, r3 */
+        0xE5933000U  /* ldr r3, [r3] */
+    };
+    struct skybox_trampoline_spec {
+        uint32_t offset;
+        uint32_t cleanup_offset;
+        uint32_t resume_offset;
+    } skybox_specs[2] = {
+        { NOVA3_SKYBOX_CTOR_A_SCENE_USE_OFFSET, 0x00107C3CU, 0x00107BE4U },
+        { NOVA3_SKYBOX_CTOR_B_SCENE_USE_OFFSET, 0x00107F24U, 0x00107ECCU }
+    };
+
+    for (int s = 0; s < 2; s++) {
+        uintptr_t target = (uintptr_t)so_mod.load_virtbase + skybox_specs[s].offset;
+        uintptr_t cleanup_addr = (uintptr_t)so_mod.load_virtbase + skybox_specs[s].cleanup_offset;
+        uintptr_t resume_addr = (uintptr_t)so_mod.load_virtbase + skybox_specs[s].resume_offset;
+
+        if (memcmp((const void *)target, expected_skybox_preimage, sizeof(expected_skybox_preimage)) != 0) {
+            fatal_error("Skybox CTOR preimage changed at %p.", (void *)target);
+        }
+
+        uintptr_t trampoline = (g_patch_head + 3U) & ~(uintptr_t)3U;
+        uintptr_t patch_limit = g_patch_base + g_patch_size;
+
+        uint32_t code[9] = {
+            0xE5940104U, /* ldr r0, [r4, #260] */
+            0xE3500000U, /* cmp r0, #0 */
+            0x1A000001U, /* bne normal_path (skip cleanup jump) */
+            0xE51FF004U, /* ldr pc, [pc, #-4] */
+            (uint32_t)cleanup_addr,
+            /* normal_path: */
+            0xE28D6048U, /* add r6, sp, #72 (restores r6 correctly!) */
+            0xE5903000U, /* ldr r3, [r0] (vtable load) */
+            0xE51FF004U, /* ldr pc, [pc, #-4] */
+            (uint32_t)resume_addr
+        };
+
+        size_t words_size = sizeof(code);
+        if (trampoline + words_size > patch_limit) {
+            fatal_error("No executable arena for skybox trampoline.");
+        }
+
+        uintptr_t jit_offset = trampoline - g_patch_base;
+        memcpy((void *)((uintptr_t)jitGetRwAddr(&g_jit) + jit_offset), code, words_size);
+        armDCacheFlush((void *)((uintptr_t)jitGetRwAddr(&g_jit) + jit_offset), words_size);
+        g_patch_head = trampoline + words_size;
+
+        uintptr_t rx_trampoline = (uintptr_t)jitGetRxAddr(&g_jit) + jit_offset;
+        hook_arm(target, rx_trampoline);
+
+        uint32_t nop[2] = {0xE1A00000U, 0xE1A00000U};
+        so_patch_code((void *)(target + 8), nop, sizeof(nop));
+    }
+
     so_flush_caches(&so_mod);
     runtime_trace(
         "NOVA3 Collada scene consumers installed destructor-safe optional-node route");
     runtime_trace(
-        "V80 skybox null guard preserves scene vtable before virtual call");
+        "V80 skybox null guard preserves scene vtable before virtual call and restores r6");
     runtime_trace(
         "NOVA3 animator sampler constructors disabled without Collada scene");
 }
@@ -384,7 +422,6 @@ static void install_vita_file_stream_manager_limit(void) {
     if (memcmp((const void *)target, &replacement, sizeof(replacement)) != 0) {
         runtime_trace("Could not install the FileStreamMgr limit.");
     }
-    armICacheInvalidate((void *)((uintptr_t)jitGetRxAddr(&g_jit) + offset), words_size);
     so_flush_caches(&so_mod);
     runtime_trace("NOVA3 FileStreamMgr live-stream ceiling lowered from 224 to 32");
 }

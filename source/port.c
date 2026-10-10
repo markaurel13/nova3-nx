@@ -542,6 +542,20 @@ void port_run(void) {
         // hasn't changed (the sprint cancel released them artificially).
         static int s_retrigger_pending = 0;
 
+        static void *last_level_ptr = NULL;
+        void *current_level_ptr = (nova3_ads_level_get) ? nova3_ads_level_get() : NULL;
+        if (current_level_ptr != last_level_ptr) {
+            if (left_horizontal_key && nova_key_up) nova_key_up(env, gl2jni_class, left_horizontal_key);
+            if (left_vertical_key && nova_key_up) nova_key_up(env, gl2jni_class, left_vertical_key);
+            left_horizontal_key = 0;
+            left_vertical_key = 0;
+            s_retrigger_move_frames = 0;
+            s_retrigger_pending = 0;
+            nova3_sprint_cancelled_refresh_move = 0;
+            nova3_sprint_active = 0;
+            last_level_ptr = current_level_ptr;
+        }
+
         // When sprint is cancelled by aiming/action, release movement keys this frame
         // so Gameloft processes the sprint-end, then re-issue them next frame.
         if (nova3_sprint_cancelled_refresh_move) {
@@ -575,6 +589,16 @@ void port_run(void) {
                 if (left_vertical_key && nova_key_up) nova_key_up(env, gl2jni_class, left_vertical_key);
                 if (vertical_key && nova_key_down) nova_key_down(env, gl2jni_class, vertical_key);
                 left_vertical_key = vertical_key;
+            }
+
+            // Periodic key repeat: the game engine occasionally drops or clears key states 
+            // internally (e.g., during "progress saved" checkpoints, lag spikes, or action animations).
+            // Emulate standard Android key repeat to ensure stick state stays synced.
+            static uint64_t last_move_repeat_ms = 0;
+            if (now_ms - last_move_repeat_ms > 200) {
+                last_move_repeat_ms = now_ms;
+                if (left_horizontal_key && nova_key_down) nova_key_down(env, gl2jni_class, left_horizontal_key);
+                if (left_vertical_key && nova_key_down) nova_key_down(env, gl2jni_class, left_vertical_key);
             }
         }
 
