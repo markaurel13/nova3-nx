@@ -60,6 +60,12 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 3. Extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb` content into the **same** `files` folder.
 4. **Important**: When prompted, choose **Replace / Overwrite all** so the newer 1070 files replace some older 1050 files.
 
+> [!WARNING]
+> **Do NOT extract the OBB into a subfolder with the OBB's name.**  
+> The loose game files must sit directly inside `data/files/`.  
+> Your folder should look like: `data/files/weapons_stream.gla`, `data/files/actors_stream.gla`, etc.  
+> If you have paths like `data/files/main.1050.../` or `data/files/files/`, the game will fail to load!
+
 ### 2. Copy to MicroSD
 1. Download `nova3.nro` from the [Releases](https://github.com/markaurel13/nova3-nx/releases) section.   
 2. On your Switch SD card, create the folder `sdmc:/switch/nova3/`.
