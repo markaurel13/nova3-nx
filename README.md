@@ -45,7 +45,7 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 ### For Players
 - A Nintendo Switch running **Atmosphère** custom firmware.
 - The [Sphaira](https://github.com/ITotalJustice/sphaira) homebrew menu (installing Sphaira's forwarder is required so the system launches it in 32-bit mode).
-- A copy of **nova3.apk** (v1.0.7 or versionCode `1070`).
+- A copy of **nova3.apk** (v1.0.7, versionCode `1070`).
 - The game's two OBB data files:
   - `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb`
   - `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb`
@@ -60,15 +60,14 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 3. Open/extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb` into the **same** `files` folder.
 4. **Important**: When prompted, choose **Replace / Overwrite all** so the newer 1070 files replace some older 1050 files.
 
-### 2. Extract the Game Library & Copy APK
-1. Copy your `nova3.apk` directly into your Switch folder (`sdmc:/switch/nova3/nova3.apk`).
-2. Open your `nova3.apk` with 7-Zip or WinRAR (or rename it to `nova3.zip` temporarily).
-3. Go into `lib/armeabi-v7a/` and extract `libNOVA3_neon.so`.
+### 2. Extract the Game Library
+1. Open your `nova3.apk` with 7-Zip or WinRAR (or rename it to `nova3.zip` temporarily).
+2. Go into `lib/armeabi-v7a/` and extract `libNOVA3_neon.so`.
 
 ### 3. Copy to MicroSD
 1. Download `nova3.nro` from the [Releases](https://github.com/markaurel13/nova3-nx/releases) section.   
 2. On your Switch SD card, create the folder `sdmc:/switch/nova3/`.
-3. Copy your files so the structure looks exactly like this:
+3. Copy your files (including the original `nova3.apk`, unchanged) so the structure looks exactly like this:
 
 ```text
 sdmc:/switch/nova3/
@@ -82,7 +81,8 @@ sdmc:/switch/nova3/
 ### 4. Launching the Game (32-bit execution)
 1. Open **Sphaira** on your Switch.
 2. Select **N.O.V.A. 3** and choose **Install Forwarder**.
-3. Go back to your Switch HOME Menu and start the game directly from its icon!  
+3. Go back to your Switch HOME Menu and start the game directly from its icon!
+
 ---
 
 ## Controls
@@ -116,7 +116,7 @@ To lock the game at a super smooth 60 FPS without draining extra battery, you ca
 handheld_cpu=1224
 handheld_gpu=230
 docked_cpu=1224
-docked_gpu= 460
+docked_gpu=460
 ```
 
 * **CPU @ 1224 MHz**: Gives extra headroom for loading and smooth asset streaming.
