@@ -441,6 +441,40 @@ static void disable_tracking_manager_parsexml(void) {
 
 }
 
+static void disable_engine_touch_doubletap_sprint(void) {
+    uint32_t arm_nop = 0xe1a00000;
+
+    // 1. NOP the write to player[0x44] in PlayerComponent::ComputeControlVelocity.
+    //    Original: 1dda10: e5c40044 (strb r0, [r4, #68])
+    //    r7 was incorrectly assumed to be 0 here — in paths where CanRush=1 AND
+    //    weapon[0x64]=1 AND speed < threshold, r7=1 and my previous strb r7 patch
+    //    wrote 1 to player[0x44], triggering forward sprint while walking backward.
+    //    Simply NOP the write: port.c zeroes player[0x44U] every frame before
+    //    native_step, and since the write is gone it stays 0 throughout the step.
+    uintptr_t target_store = (uintptr_t)so_mod.load_virtbase + 0x1dda10;
+    so_patch_code((void *)target_store, &arm_nop, 4);
+
+    // 2. NOP the branch on player[0x44] in PlayerComponent::ComputeControlVelocity (start rush).
+    //    Original: 1dda54: 1a000007 (bne 1dda78)
+    //    With player[0x44] always 0 this branch never fired anyway; NOP is a no-op safety measure.
+    uintptr_t target_branch1 = (uintptr_t)so_mod.load_virtbase + 0x1dda54;
+    so_patch_code((void *)target_branch1, &arm_nop, 4);
+
+    // 3. NOP the branch on player[0x44] in the rush-speed path (PlayerComponent::ComputeControlVelocity).
+    //    Original: 1ddd44: 1a000002 (bne 1ddd54)
+    uintptr_t target_branch2 = (uintptr_t)so_mod.load_virtbase + 0x1ddd44;
+    so_patch_code((void *)target_branch2, &arm_nop, 4);
+
+    // 4. Set WalkJoystick::s_DoubleTapTime to -1.0f so the press-based double-tap
+    //    detector (RaisePressEvent) can never fire: elapsed >= 0 > -1.0f always.
+    float neg_one = -1.0f;
+    uintptr_t target_dt_time = (uintptr_t)so_mod.load_virtbase + 0x00d780b0;
+    so_patch_code((void *)target_dt_time, &neg_one, 4);
+
+    so_flush_caches(&so_mod);
+    runtime_trace("Disabled engine double-tap and touch sprint detection in PlayerComponent & WalkJoystick");
+}
+
 void so_patch(void) {
     if (R_FAILED(jitCreate(&g_jit, g_patch_size))) fatal_error("jitCreate failed!");
     jitTransitionToExecutable(&g_jit);
@@ -451,4 +485,5 @@ void so_patch(void) {
     disable_tracking_manager_parsexml();
     install_post_effects_null_guards();
     install_null_safe_collada_scene_consumers();
+    disable_engine_touch_doubletap_sprint();
 }

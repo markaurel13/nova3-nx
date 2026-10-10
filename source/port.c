@@ -48,6 +48,7 @@ typedef void (*nova3_weapon_end_rush_fn)(void *weapon);
 typedef void (*nova3_weapon_manager_aim_fn)(void *manager);
 typedef void (*nova3_weapon_manager_unaim_fn)(void *manager);
 typedef int (*nova3_weapon_manager_set_next_weapon_fn)(void *manager, int unused);
+typedef void (*nova3_rush_tutorial_skip_fn)(void *tutorial);
 
 static nova3_level_get_fn nova3_ads_level_get = NULL;
 static nova3_get_player_component_fn nova3_ads_get_player_component = NULL;
@@ -55,6 +56,7 @@ static nova3_weapon_end_rush_fn nova3_weapon_end_rush = NULL;
 static nova3_weapon_manager_aim_fn nova3_weapon_manager_aim = NULL;
 static nova3_weapon_manager_unaim_fn nova3_ads_weapon_manager_unaim = NULL;
 static nova3_weapon_manager_set_next_weapon_fn nova3_weapon_manager_set_next_weapon = NULL;
+static nova3_rush_tutorial_skip_fn nova3_rush_tutorial_skip = NULL;
 
 static void *nova3_ads_current_weapon(void **manager_output) {
     if (manager_output) *manager_output = NULL;
@@ -101,6 +103,7 @@ static void nova3_cancel_sprint_if_active(void) {
     void *level = nova3_ads_level_get ? nova3_ads_level_get() : NULL;
     uint8_t *player = level && nova3_ads_get_player_component ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
     if (player) {
+        player[0x44U] = 0;
         player[0x45U] = 0;
     }
 
@@ -317,6 +320,8 @@ void port_run(void) {
     nova3_weapon_manager_aim = (nova3_weapon_manager_aim_fn)(so_mod.load_virtbase + 0x00585FF0U);
     nova3_ads_weapon_manager_unaim = (nova3_weapon_manager_unaim_fn)(so_mod.load_virtbase + 0x00585FC8U);
     nova3_weapon_manager_set_next_weapon = (nova3_weapon_manager_set_next_weapon_fn)(so_mod.load_virtbase + 0x0058F7A0U);
+    // CLevelTutorialRush::Skip — re-enables rush control and clears tutorial state (mission 3 sprint tutorial)
+    nova3_rush_tutorial_skip = (nova3_rush_tutorial_skip_fn)(so_mod.load_virtbase + 0x002D69B4U);
 
 
 
@@ -425,28 +430,12 @@ void port_run(void) {
         // Convert Left Stick to D-PAD (Gameloft ignored Left Joystick native binding)
         int horizontal_key = sticks[0] > 0.5f ? 22 : (sticks[0] < -0.5f ? 21 : 0);
         int vertical_key = sticks[1] > 0.5f ? 19 : (sticks[1] < -0.5f ? 20 : 0);
-        
-        // Unified Sprint Controller: activates on double-flick forward OR L3 click
-        static int stick_was_forward = 0;
-        static uint64_t forward_release_ms = 0;
 
-        // 1. Double-flick forward detection
-        if (sticks[1] > 0.55f) {
-            if (!stick_was_forward) {
-                stick_was_forward = 1;
-                uint64_t idle_time = now_ms - forward_release_ms;
-                if (idle_time > 40 && idle_time < 380 && !nova3_ads_shoulder_held) {
-                    nova3_sprint_active = 1;
-                }
-            }
-        } else if (sticks[1] < 0.25f) {
-            if (stick_was_forward) {
-                stick_was_forward = 0;
-                forward_release_ms = now_ms;
-            }
-        }
-
-        // 2. L3 (StickL) click detection
+        // Sprint Controller: L3 (StickL click) toggles sprint on/off.
+        // L3 is the universal standard for sprint in modern console FPS games
+        // (Call of Duty, Halo Infinite, Apex Legends, etc.). The double-flick
+        // gesture was removed: it caused accidental activations and the brief
+        // stick release interfered with mission-3's rush tutorial sequence.
         if (keys_down & HidNpadButton_StickL) {
             if (sticks[1] > 0.2f && !nova3_ads_shoulder_held) {
                 nova3_sprint_active = !nova3_sprint_active;
@@ -466,11 +455,28 @@ void port_run(void) {
             void *level = nova3_ads_level_get();
             uint8_t *player = level ? (uint8_t *)nova3_ads_get_player_component(level) : NULL;
             if (player) {
+                // Track whether the rush tutorial skip has already been called this sprint session.
+                // We only need to call it once when sprint first activates.
+                static int rush_tut_skipped = 0;
+
                 if (nova3_sprint_active) {
                     player[0x32cU] = 1; // Ensure rush capability is enabled on this level
                     player[0x45U] = 1;  // Activate controller rush state
+
+                    // If there is an active rush tutorial (mission 3: "Lost Ark"), call Skip() once.
+                    // The tutorial calls EnableRushControl(false) at start, blocking sprint movement.
+                    // Skip() calls EnableRushControl(true) + StopTutorial, unblocking everything.
+                    if (!rush_tut_skipped && level && nova3_rush_tutorial_skip) {
+                        void *rush_tut = *(void **)((uint8_t *)level + 0x1ACU);
+                        if (rush_tut) {
+                            nova3_rush_tutorial_skip(rush_tut);
+                            rush_tut_skipped = 1;
+                        }
+                    }
                 } else {
+                    player[0x44U] = 0;  // Ensure touch rush state is cleared
                     player[0x45U] = 0;  // Deactivate controller rush state
+                    rush_tut_skipped = 0; // Reset for next sprint session
                 }
             } else {
                 nova3_sprint_active = 0;
