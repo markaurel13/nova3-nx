@@ -60,25 +60,22 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 3. Open/extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb` into the **same** `files` folder.
 4. **Important**: When prompted, choose **Replace / Overwrite all** so the newer 1070 files replace some older 1050 files.
 
-### 2. Extract the Game Library
-1. Open your `nova3.apk` with 7-Zip or WinRAR (or rename it to `nova3.zip` temporarily).
-2. Go into `lib/armeabi-v7a/` and extract `libNOVA3_neon.so`.
-
-### 3. Copy to MicroSD
+### 2. Copy to MicroSD
 1. Download `nova3.nro` from the [Releases](https://github.com/markaurel13/nova3-nx/releases) section.   
 2. On your Switch SD card, create the folder `sdmc:/switch/nova3/`.
-3. Copy your files (including the original `nova3.apk`, unchanged) so the structure looks exactly like this:
+3. Copy `nova3.nro`, your `nova3.apk`, and your extracted `data/files/` folder so the structure looks exactly like this:
 
 ```text
 sdmc:/switch/nova3/
 ├── nova3.nro
 ├── nova3.apk
-├── libNOVA3_neon.so
-└── data/ (if data folder doesn't exist just create it)
+└── data/ (if the data folder doesn't exist just create it)
     └── files/ (Paste the "files" folder from Step 1 here, so you have data/files/)
 ```
 
-### 4. Launching the Game (32-bit execution)
+*(Note: You do NOT need to extract any library files manually. The game automatically extracts `libNOVA3_neon.so` from your `nova3.apk` on the first launch).*
+
+### 3. Launching the Game (32-bit execution)
 1. Open **Sphaira** on your Switch.
 2. Select **N.O.V.A. 3** and choose **Install Forwarder**.
 3. Go back to your Switch HOME Menu and start the game directly from its icon!
