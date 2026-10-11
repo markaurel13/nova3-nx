@@ -383,27 +383,34 @@ void port_run(void) {
     egl_init_port();
     s_game_started = 1;
     
-    // Pre-warm GLA handle pool (3 concurrent handles per audio bank)
+    // Pre-warm GLA handle pool to eliminate SD card I/O stalls during combat
     extern void *b_fopen(const char *path, const char *mode);
     extern int b_fclose(void *fp);
-    static const char *const prewarm_gla[] = {
-        "sdmc:/switch/nova3/data/files/sounds_hi_p1.gla",
-        "sdmc:/switch/nova3/data/files/sounds_hi_p2.gla",
-        "sdmc:/switch/nova3/data/files/sounds_hi_p3.gla",
-        "sdmc:/switch/nova3/data/files/sounds_hi_p4.gla",
-        "sdmc:/switch/nova3/data/files/actors_stream.gla",
-        "sdmc:/switch/nova3/data/files/weapons_stream.gla",
+    struct PrewarmTarget {
+        const char *path;
+        int count;
+    };
+    static const struct PrewarmTarget prewarm_gla[] = {
+        { "sdmc:/switch/nova3/data/files/sounds_hi_p1.gla", 16 },
+        { "sdmc:/switch/nova3/data/files/sounds_hi_p3.gla", 16 },
+        { "sdmc:/switch/nova3/data/files/sounds_hi_p2.gla", 8 },
+        { "sdmc:/switch/nova3/data/files/sounds_hi_p4.gla", 8 },
+        { "sdmc:/switch/nova3/data/files/sounds_hi_p5.gla", 8 },
+        { "sdmc:/switch/nova3/data/files/weapons_stream.gla", 20 },
+        { "sdmc:/switch/nova3/data/files/actors_stream.gla", 20 },
     };
     for (size_t i = 0; i < sizeof(prewarm_gla)/sizeof(prewarm_gla[0]); i++) {
-        void *handles[3] = {NULL, NULL, NULL};
-        for (int h = 0; h < 3; h++) {
-            handles[h] = b_fopen(prewarm_gla[i], "rb");
+        void *handles[32] = {NULL};
+        int count = prewarm_gla[i].count;
+        if (count > 32) count = 32;
+        for (int h = 0; h < count; h++) {
+            handles[h] = b_fopen(prewarm_gla[i].path, "rb");
         }
-        for (int h = 0; h < 3; h++) {
+        for (int h = 0; h < count; h++) {
             if (handles[h]) b_fclose(handles[h]);
         }
     }
-    printf("[port] GLA handle pool pre-warmed (3 handles per audio bank).\n");
+    printf("[port] GLA handle pool pre-warmed (20 stream handles, 16 audio handles).\n");
     
     static uint64_t s_frames = 0;
     while (appletMainLoop()) {

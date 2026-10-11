@@ -358,7 +358,7 @@ void *b_fopen(const char *path, const char *mode) {
   if (is_gla_ro) {
     const char *base = gla_basename(real);
     mutexLock(&g_gla_pool_lock);
-    for (int i = 0; i < g_gla_pool_count; i++) {
+    for (int i = g_gla_pool_count - 1; i >= 0; i--) {
       if (!strcmp(gla_basename(g_gla_pool[i].path), base)) {
         FILE *f = g_gla_pool[i].fp;
         g_gla_pool[i] = g_gla_pool[--g_gla_pool_count];

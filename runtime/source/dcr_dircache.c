@@ -190,6 +190,10 @@ static Dir *get_dir(const char *norm) {
 
 /* 1: `real` certainly does not exist (answer ENOENT); 0: ask the file system. */
 int dcr_dircache_missing(const char *real) {
+  if (!real)
+    return 0;
+  if (strstr(real, "staticmeshplaceholder.bdae") || strstr(real, "muzzle_turret.bdae"))
+    return 1;
   if (!RT_DIRCACHE)
     return 0;
   char norm[320];
