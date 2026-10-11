@@ -45,7 +45,7 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 ### For Players
 - A Nintendo Switch running **Atmosphère** custom firmware.
 - The [Sphaira](https://github.com/ITotalJustice/sphaira) homebrew menu (installing Sphaira's forwarder is required so the system launches it in 32-bit mode).
-- A copy of **nova3.apk** (v1.0.7, versionCode `1070`).
+- A copy of **nova3.apk v1.0.7** (the name of the apk does not matter, but it has to be the v1.0.7 version, otherwise it will not work).
 - The game's two OBB data files:
   - `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb`
   - `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb`
@@ -55,7 +55,7 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 ## Installation Guide
 
 ### 1. Extract Game Data
-1. Create a `files` folder inside a `data` folder (i.e., the final path should be `data/files`).   
+1. On your PC, create a `files` folder inside a `data` folder (i.e., the final path should be `data/files`).   
 2. Extract `main.1050.com.gameloft.android.ANMP.GloftN3HM.obb` content into your `files` folder using 7-Zip or WinRAR.
 3. Extract `patch.1070.com.gameloft.android.ANMP.GloftN3HM.obb` content into the **same** `files` folder.
 4. **Important**: When prompted, choose **Replace / Overwrite all** so the newer 1070 files replace some older 1050 files.
@@ -64,7 +64,7 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 > **Do NOT extract the OBB into a subfolder with the OBB's name.**  
 > The loose game files must sit directly inside `data/files/`.  
 > Your folder should look like: `data/files/weapons_stream.gla`, `data/files/actors_stream.gla`, etc.  
-> If you have paths like `data/files/main.1050.../` or `data/files/files/`, the game will fail to load!
+> If you have paths like `data/files/main.1050.../` or `data/files/files/`, the game will fail to load
 
 ### 2. Copy to MicroSD
 1. Download `nova3.nro` from the [Releases](https://github.com/markaurel13/nova3-nx/releases) section.   
@@ -112,13 +112,10 @@ The game runs great on stock clocks, but the Switch power manager can put the GP
 
 To lock the game at a super smooth 60 FPS without draining extra battery, you can optionally set this profile in **sys-clk**:
 
-```ini
-[0100777777777000]
-handheld_cpu=1224
-handheld_gpu=230
-docked_cpu=1224
-docked_gpu=460
-```
+| Mode | CPU | GPU | Memory |
+|------|-----|-----|--------|
+| Handheld | 1224 MHz | 230 MHz | 1331.2 MHz (stock) |
+| Docked | 1224 MHz | 460 MHz | 1600 MHz (stock) |   
 
 * **CPU @ 1224 MHz**: Gives extra headroom for loading and smooth asset streaming.
 * **GPU @ 230 MHz**: Keeps the GPU constantly awake at a cool, battery-friendly baseline (stock handheld is 307–384 MHz and stock docked is 768 MHz, so 230 MHz handheld and 460 MHz docked is very low and safe).
