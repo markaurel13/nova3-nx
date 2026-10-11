@@ -351,7 +351,40 @@ static int nova3_navspace_test_move_guard(void *self, void *navSpace, void *pos,
     return nova3_navspace_test_move_original(self, navSpace, pos, cell, dest, b);
 }
 
+/* CAirNavigationComponent::TestStraightPath / CGroundNavigationComponent::TestStraightMove
+ * call TestStrMove and then dereference the nav space/mesh it wrote back
+ * ([navspace+4]); if the zone or its nav data is gone that is a null deref
+ * (far 0x4). Re-implemented with null checks; semantics are otherwise identical. */
+typedef int (*nova3_test_str_move_fn)(void *, void *, void *, const void *);
+static int nova3_air_test_straight_path_guard(void *self, void *pos, void **zoneRef, const void *dest) {
+    if (!self || !pos || !zoneRef || !dest) return 0;
+    uint8_t *zone = (uint8_t *)*zoneRef;
+    void *query = *(void **)((uint8_t *)self + 140);
+    if (!zone || !query) return 0;
+    void *ns = *(void **)(zone + 332);
+    if (!ns) return 0;
+    nova3_test_str_move_fn fn = (nova3_test_str_move_fn)((uintptr_t)so_mod.load_virtbase + 0x005FDAF4U);
+    int r = fn(query, &ns, pos, dest);
+    if (ns) *zoneRef = *(void **)((uint8_t *)ns + 4);
+    return r;
+}
+
+static int nova3_ground_test_straight_move_guard(void *self, void **zoneRef, void *pos, const void *dest) {
+    if (!self || !zoneRef || !pos || !dest) return 0;
+    uint8_t *zone = (uint8_t *)*zoneRef;
+    void *query = *(void **)((uint8_t *)self + 152);
+    if (!zone || !query) return 0;
+    void *mesh = *(void **)(zone + 328);
+    if (!mesh) return 0;
+    nova3_test_str_move_fn fn = (nova3_test_str_move_fn)((uintptr_t)so_mod.load_virtbase + 0x0015774CU);
+    int r = fn(query, &mesh, pos, dest);
+    if (mesh) *zoneRef = *(void **)((uint8_t *)mesh + 4);
+    return r;
+}
+
 static void install_navspace_null_guards(void) {
+    static const uint32_t air_tsp_expected[]  = { 0xE92D4010U, 0xE1A04002U };
+    static const uint32_t gnd_tsm_expected[]  = { 0xE92D4010U, 0xE1A04001U };
     static const uint32_t pos_to_grid_safe_expected[] = { 0xE92D40F0U, 0xEDD15A01U };
     static const uint32_t pos_to_grid_expected[]      = { 0xE92D40F0U, 0xEDD15A01U };
     static const uint32_t is_pos_not_outside_expected[] = { 0xE92D4070U, 0xEDD15A01U };
@@ -437,8 +470,18 @@ static void install_navspace_null_guards(void) {
             test_move_expected, (uintptr_t)&nova3_navspace_test_move_guard,
             "CNavSpaceQuery::TestMove preimage changed.");
 
+    (void)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + 0x00565C6CU,
+            air_tsp_expected, (uintptr_t)&nova3_air_test_straight_path_guard,
+            "CAirNavigationComponent::TestStraightPath preimage changed.");
+
+    (void)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + 0x00569DD0U,
+            gnd_tsm_expected, (uintptr_t)&nova3_ground_test_straight_move_guard,
+            "CGroundNavigationComponent::TestStraightMove preimage changed.");
+
     so_flush_caches(&so_mod);
-    runtime_trace("NOVA3 null-safe navspace surface installed twelve navigation guards");
+    runtime_trace("NOVA3 null-safe navspace surface installed fourteen navigation guards");
 }
 
 static void install_null_safe_collada_scene_consumers(void) {
