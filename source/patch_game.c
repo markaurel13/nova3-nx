@@ -39,6 +39,19 @@ Jit g_jit;
 #define NOVA3_COLLADA_SCENE_CONSUMER_C_OFFSET 0x00108A40U
 #define NOVA3_COLLADA_SCENE_CONSUMER_D_OFFSET 0x001221D4U
 
+#define NOVA3_NAVSPACE_POS_TO_GRID_SAFE_OFFSET    0x005E9818U
+#define NOVA3_NAVSPACE_POS_TO_GRID_OFFSET         0x005E9924U
+#define NOVA3_NAVSPACE_IS_POS_NOT_OUTSIDE_OFFSET  0x005E9A60U
+#define NOVA3_NAVSPACE_IS_POS_VALID_DEST_OFFSET   0x005E9B64U
+#define NOVA3_NAVSPACE_GET_GRID_UINT_OFFSET       0x005E5504U
+#define NOVA3_NAVSPACE_GET_GRID_3I_OFFSET         0x005E556CU
+#define NOVA3_NAVSPACE_GET_GRID_VEC_OFFSET        0x005E55C4U
+#define NOVA3_NAVSPACE_QUERY_GET_CLOSEST_CELL_OFFSET 0x005F1C90U
+#define NOVA3_NAVSPACE_QUERY_GET_CLOSEST_POS_OFFSET  0x005E9764U
+#define NOVA3_NAVSPACE_QUERY_GET_CLOSEST_NAV_POS_OFFSET 0x005F23C4U
+#define NOVA3_NAVSPACE_QUERY_TEST_RAY_OFFSET      0x005FCF24U
+#define NOVA3_NAVSPACE_QUERY_TEST_MOVE_OFFSET     0x005FC668U
+
 typedef void (*nova3_post_effects_update_fn)(void *);
 typedef void (*nova3_post_effects_action_fn)(void *, int);
 typedef void (*nova3_post_effects_init_hud_fn)(void *, void *);
@@ -236,6 +249,198 @@ static void install_post_effects_null_guards(void) {
     runtime_trace(
         "NOVA3 null-safe post-effects surface installed thirteen external entry guards");
 }
+
+typedef void (*nova3_navspace_pos_to_grid_fn)(void *, const void *, void *);
+typedef int (*nova3_navspace_is_pos_fn)(void *, const void *);
+typedef int (*nova3_navspace_get_grid_uint_fn)(void *, uint32_t);
+typedef int (*nova3_navspace_get_grid_3i_fn)(void *, int, int, int);
+typedef int (*nova3_navspace_get_grid_vec_fn)(void *, const void *);
+typedef int (*nova3_navspace_get_closest_cell_fn)(void *, void *, const void *, void *);
+typedef void (*nova3_navspace_get_closest_pos_to_cell_fn)(void *, void *, const void *, const void *, void *);
+typedef int (*nova3_navspace_get_closest_nav_pos_fn)(void *, void *, const void *, void *);
+typedef int (*nova3_navspace_test_ray_fn)(void *, void *, const void *, const void *);
+typedef int (*nova3_navspace_test_move_fn)(void *, void *, void *, void *, const void *, int);
+
+static nova3_navspace_pos_to_grid_fn nova3_navspace_pos_to_grid_safe_original;
+static nova3_navspace_pos_to_grid_fn nova3_navspace_pos_to_grid_original;
+static nova3_navspace_is_pos_fn nova3_navspace_is_pos_not_outside_original;
+static nova3_navspace_is_pos_fn nova3_navspace_is_pos_valid_dest_original;
+static nova3_navspace_get_grid_uint_fn nova3_navspace_get_grid_uint_original;
+static nova3_navspace_get_grid_3i_fn nova3_navspace_get_grid_3i_original;
+static nova3_navspace_get_grid_vec_fn nova3_navspace_get_grid_vec_original;
+static nova3_navspace_get_closest_cell_fn nova3_navspace_get_closest_cell_original;
+static nova3_navspace_get_closest_pos_to_cell_fn nova3_navspace_get_closest_pos_to_cell_original;
+static nova3_navspace_get_closest_nav_pos_fn nova3_navspace_get_closest_nav_pos_original;
+static nova3_navspace_test_ray_fn nova3_navspace_test_ray_original;
+static nova3_navspace_test_move_fn nova3_navspace_test_move_original;
+
+static void nova3_navspace_pos_to_grid_safe_guard(void *self, const void *pos, void *out) {
+    if (!self || !pos || !out) {
+        if (out) memset(out, 0, 6);
+        return;
+    }
+    nova3_navspace_pos_to_grid_safe_original(self, pos, out);
+}
+
+static void nova3_navspace_pos_to_grid_guard(void *self, const void *pos, void *out) {
+    if (!self || !pos || !out) {
+        if (out) memset(out, 0, 6);
+        return;
+    }
+    nova3_navspace_pos_to_grid_original(self, pos, out);
+}
+
+static int nova3_navspace_is_pos_not_outside_guard(void *self, const void *pos) {
+    if (!self || !pos) return 0;
+    return nova3_navspace_is_pos_not_outside_original(self, pos);
+}
+
+static int nova3_navspace_is_pos_valid_dest_guard(void *self, const void *pos) {
+    if (!self || !pos) return 0;
+    return nova3_navspace_is_pos_valid_dest_original(self, pos);
+}
+
+static int nova3_navspace_get_grid_uint_guard(void *self, uint32_t idx) {
+    if (!self) return 2;
+    return nova3_navspace_get_grid_uint_original(self, idx);
+}
+
+static int nova3_navspace_get_grid_3i_guard(void *self, int x, int y, int z) {
+    if (!self) return 2;
+    return nova3_navspace_get_grid_3i_original(self, x, y, z);
+}
+
+static int nova3_navspace_get_grid_vec_guard(void *self, const void *coord) {
+    if (!self || !coord) return 2;
+    return nova3_navspace_get_grid_vec_original(self, coord);
+}
+
+static int nova3_navspace_get_closest_cell_guard(void *self, void *navSpace, const void *pos, void *out) {
+    if (!self || !navSpace || !pos || !out) {
+        if (out) memset(out, 0, 6);
+        return 0;
+    }
+    return nova3_navspace_get_closest_cell_original(self, navSpace, pos, out);
+}
+
+static void nova3_navspace_get_closest_pos_to_cell_guard(void *self, void *navSpace, const void *pos, const void *cell, void *out) {
+    if (!self || !navSpace || !pos || !cell || !out) {
+        if (out && pos) memcpy(out, pos, 12);
+        else if (out) memset(out, 0, 12);
+        return;
+    }
+    nova3_navspace_get_closest_pos_to_cell_original(self, navSpace, pos, cell, out);
+}
+
+static int nova3_navspace_get_closest_nav_pos_guard(void *self, void *navSpace, const void *pos, void *out) {
+    if (!self || !navSpace || !pos || !out) {
+        if (out && pos) memcpy(out, pos, 12);
+        else if (out) memset(out, 0, 12);
+        return 0;
+    }
+    return nova3_navspace_get_closest_nav_pos_original(self, navSpace, pos, out);
+}
+
+static int nova3_navspace_test_ray_guard(void *self, void *navSpace, const void *start, const void *end) {
+    if (!self || !navSpace || !start || !end) return 0;
+    return nova3_navspace_test_ray_original(self, navSpace, start, end);
+}
+
+static int nova3_navspace_test_move_guard(void *self, void *navSpace, void *pos, void *cell, const void *dest, int b) {
+    if (!self || !navSpace || !pos || !cell || !dest) return 0;
+    return nova3_navspace_test_move_original(self, navSpace, pos, cell, dest, b);
+}
+
+static void install_navspace_null_guards(void) {
+    static const uint32_t pos_to_grid_safe_expected[] = { 0xE92D40F0U, 0xEDD15A01U };
+    static const uint32_t pos_to_grid_expected[]      = { 0xE92D40F0U, 0xEDD15A01U };
+    static const uint32_t is_pos_not_outside_expected[] = { 0xE92D4070U, 0xEDD15A01U };
+    static const uint32_t is_pos_valid_dest_expected[]  = { 0xE92D4070U, 0xEDD15A01U };
+    static const uint32_t get_grid_uint_expected[]    = { 0xE92D4070U, 0xE1D031B8U };
+    static const uint32_t get_grid_3i_expected[]      = { 0xE192C001U, 0xE92D0030U };
+    static const uint32_t get_grid_vec_expected[]     = { 0xE92D0030U, 0xE1D130F0U };
+    static const uint32_t get_closest_cell_expected[] = { 0xE92D4FF0U, 0xED2D8B04U };
+    static const uint32_t get_closest_pos_expected[]  = { 0xE1D300F0U, 0xEE040A10U };
+    static const uint32_t get_closest_nav_pos_expected[] = { 0xE92D41F0U, 0xE24DD010U };
+    static const uint32_t test_ray_expected[]         = { 0xE92D4FF0U, 0xE24DD044U };
+    static const uint32_t test_move_expected[]        = { 0xE92D4FF0U, 0xED2D8B08U };
+
+    nova3_navspace_pos_to_grid_safe_original =
+        (nova3_navspace_pos_to_grid_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_POS_TO_GRID_SAFE_OFFSET,
+            pos_to_grid_safe_expected, (uintptr_t)&nova3_navspace_pos_to_grid_safe_guard,
+            "CNavSpace::PosToGridCoordSafe preimage changed.");
+
+    nova3_navspace_pos_to_grid_original =
+        (nova3_navspace_pos_to_grid_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_POS_TO_GRID_OFFSET,
+            pos_to_grid_expected, (uintptr_t)&nova3_navspace_pos_to_grid_guard,
+            "CNavSpace::PosToGridCoord preimage changed.");
+
+    nova3_navspace_is_pos_not_outside_original =
+        (nova3_navspace_is_pos_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_IS_POS_NOT_OUTSIDE_OFFSET,
+            is_pos_not_outside_expected, (uintptr_t)&nova3_navspace_is_pos_not_outside_guard,
+            "CNavSpace::IsPosNotOutside preimage changed.");
+
+    nova3_navspace_is_pos_valid_dest_original =
+        (nova3_navspace_is_pos_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_IS_POS_VALID_DEST_OFFSET,
+            is_pos_valid_dest_expected, (uintptr_t)&nova3_navspace_is_pos_valid_dest_guard,
+            "CNavSpace::IsPosValidDest preimage changed.");
+
+    nova3_navspace_get_grid_uint_original =
+        (nova3_navspace_get_grid_uint_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_GET_GRID_UINT_OFFSET,
+            get_grid_uint_expected, (uintptr_t)&nova3_navspace_get_grid_uint_guard,
+            "CNavSpace::GetGrid(uint) preimage changed.");
+
+    nova3_navspace_get_grid_3i_original =
+        (nova3_navspace_get_grid_3i_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_GET_GRID_3I_OFFSET,
+            get_grid_3i_expected, (uintptr_t)&nova3_navspace_get_grid_3i_guard,
+            "CNavSpace::GetGrid(3i) preimage changed.");
+
+    nova3_navspace_get_grid_vec_original =
+        (nova3_navspace_get_grid_vec_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_GET_GRID_VEC_OFFSET,
+            get_grid_vec_expected, (uintptr_t)&nova3_navspace_get_grid_vec_guard,
+            "CNavSpace::GetGrid(vec) preimage changed.");
+
+    nova3_navspace_get_closest_cell_original =
+        (nova3_navspace_get_closest_cell_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_QUERY_GET_CLOSEST_CELL_OFFSET,
+            get_closest_cell_expected, (uintptr_t)&nova3_navspace_get_closest_cell_guard,
+            "CNavSpaceQuery::GetClosestNavCell preimage changed.");
+
+    nova3_navspace_get_closest_pos_to_cell_original =
+        (nova3_navspace_get_closest_pos_to_cell_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_QUERY_GET_CLOSEST_POS_OFFSET,
+            get_closest_pos_expected, (uintptr_t)&nova3_navspace_get_closest_pos_to_cell_guard,
+            "CNavSpaceQuery::GetClosestPosToCell preimage changed.");
+
+    nova3_navspace_get_closest_nav_pos_original =
+        (nova3_navspace_get_closest_nav_pos_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_QUERY_GET_CLOSEST_NAV_POS_OFFSET,
+            get_closest_nav_pos_expected, (uintptr_t)&nova3_navspace_get_closest_nav_pos_guard,
+            "CNavSpaceQuery::GetClosestNavPos preimage changed.");
+
+    nova3_navspace_test_ray_original =
+        (nova3_navspace_test_ray_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_QUERY_TEST_RAY_OFFSET,
+            test_ray_expected, (uintptr_t)&nova3_navspace_test_ray_guard,
+            "CNavSpaceQuery::TestRay preimage changed.");
+
+    nova3_navspace_test_move_original =
+        (nova3_navspace_test_move_fn)install_arm_trampoline_guard(
+            (uintptr_t)so_mod.load_virtbase + NOVA3_NAVSPACE_QUERY_TEST_MOVE_OFFSET,
+            test_move_expected, (uintptr_t)&nova3_navspace_test_move_guard,
+            "CNavSpaceQuery::TestMove preimage changed.");
+
+    so_flush_caches(&so_mod);
+    runtime_trace("NOVA3 null-safe navspace surface installed twelve navigation guards");
+}
+
 static void install_null_safe_collada_scene_consumers(void) {
     static const uint32_t expected_laser_a_mesh_failure_exit[] = {
         0xEB1F59F1U, /* bl glf::Console::Println */
@@ -524,6 +729,7 @@ void so_patch(void) {
     install_vita_file_stream_manager_limit();
     disable_tracking_manager_parsexml();
     install_post_effects_null_guards();
+    install_navspace_null_guards();
     install_null_safe_collada_scene_consumers();
     disable_engine_touch_doubletap_sprint();
 }
