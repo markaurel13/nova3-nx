@@ -391,18 +391,19 @@ void port_run(void) {
         int count;
     };
     static const struct PrewarmTarget prewarm_gla[] = {
+        { "sdmc:/switch/nova3/data/files/sounds_hi.gla", 8 },
         { "sdmc:/switch/nova3/data/files/sounds_hi_p1.gla", 16 },
-        { "sdmc:/switch/nova3/data/files/sounds_hi_p3.gla", 16 },
+        { "sdmc:/switch/nova3/data/files/sounds_hi_p3.gla", 24 },
         { "sdmc:/switch/nova3/data/files/sounds_hi_p2.gla", 8 },
         { "sdmc:/switch/nova3/data/files/sounds_hi_p4.gla", 8 },
         { "sdmc:/switch/nova3/data/files/sounds_hi_p5.gla", 8 },
-        { "sdmc:/switch/nova3/data/files/weapons_stream.gla", 20 },
-        { "sdmc:/switch/nova3/data/files/actors_stream.gla", 20 },
+        { "sdmc:/switch/nova3/data/files/weapons_stream.gla", 32 },
+        { "sdmc:/switch/nova3/data/files/actors_stream.gla", 24 },
     };
     for (size_t i = 0; i < sizeof(prewarm_gla)/sizeof(prewarm_gla[0]); i++) {
-        void *handles[32] = {NULL};
+        void *handles[40] = {NULL};
         int count = prewarm_gla[i].count;
-        if (count > 32) count = 32;
+        if (count > 40) count = 40;
         for (int h = 0; h < count; h++) {
             handles[h] = b_fopen(prewarm_gla[i].path, "rb");
         }
@@ -410,7 +411,7 @@ void port_run(void) {
             if (handles[h]) b_fclose(handles[h]);
         }
     }
-    printf("[port] GLA handle pool pre-warmed (20 stream handles, 16 audio handles).\n");
+    printf("[port] GLA handle pool pre-warmed (32 weapon handles, 24 actor handles, audio expanded).\n");
     
     static uint64_t s_frames = 0;
     while (appletMainLoop()) {
