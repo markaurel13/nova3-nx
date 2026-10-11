@@ -112,7 +112,7 @@ The game runs great on stock clocks, but the Switch power manager can put the GP
 
 To lock the game at a super smooth 60 FPS without draining extra battery, you can optionally set this profile in **sys-clk**:
 
-| Mode | CPU | GPU | Memory |
+| Mode | CPU | GPU | RAM |
 |------|-----|-----|--------|
 | Handheld | 1224 MHz | 230 MHz | 1331.2 MHz (stock) |
 | Docked | 1224 MHz | 460 MHz | 1600 MHz (stock) |   
