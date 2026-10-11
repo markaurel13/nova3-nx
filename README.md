@@ -32,7 +32,7 @@ Because the Tegra X1 processor in the Nintendo Switch natively supports 32-bit A
 
 ## Features
 
-- **Full Native Performance:** Runs natively on the Switch hardware targeting a smooth 60 FPS.
+- **Full Native Performance:** Runs natively on the Switch hardware targeting a smooth 40-60 FPS.
 - **Modern Controller Layout:** Full dual-stick aiming, sprint with L3, quick weapon swap with L1, and hold-to-aim with ZL.
 - **Hardware-Accelerated Graphics:** Powered by OpenGL ES 2.0 via Mesa Nouveau for crisp 720p/1080p rendering.
 - **Audio & Fast Loading:** Clear audio streaming and optimized RAM caching for seamless gameplay without MicroSD lag spikes.
