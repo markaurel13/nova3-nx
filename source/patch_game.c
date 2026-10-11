@@ -684,6 +684,20 @@ static void disable_engine_touch_doubletap_sprint(void) {
     uintptr_t target_move_branch = (uintptr_t)so_mod.load_virtbase + 0x00327120U;
     so_patch_code((void *)target_move_branch, &arm_nop, 4);
 
+    // 5b. NOP the branch in MobileAnalogJoystick::RaiseMoveEvent that triggers Event 16 (EvDoubleTap / Rush).
+    //     Original: 327578: da000021 (ble 327604)
+    //     Certain levels and control schemes instantiate MobileAnalogJoystick rather than WalkJoystick.
+    //     NOPing this branch ensures MobileAnalogJoystick NEVER raises Event 16 under any circumstance!
+    uintptr_t target_mobile_move_branch = (uintptr_t)so_mod.load_virtbase + 0x00327578U;
+    so_patch_code((void *)target_mobile_move_branch, &arm_nop, 4);
+
+    // 5c. Prevent WalkJoystick::RaiseReleaseEvent from ever emitting Event 15 (quick tap-release).
+    //     Original: 324d84: da00000b (ble 324db8)
+    //     Changing to unconditional branch "b 324db8" (0xea00000b) completely skips Event 15.
+    uint32_t b_skip_ev15 = 0xea00000b;
+    uintptr_t target_skip_ev15 = (uintptr_t)so_mod.load_virtbase + 0x00324d84U;
+    so_patch_code((void *)target_skip_ev15, &b_skip_ev15, 4);
+
     // 6. As an absolute guarantee, NOP the handlers for Event 16 in CPlayerControl::onEvent:
     //    1bf214: 0a000339 (beq 1bff00) -> NOP (skip rush start trigger on Event 16)
     //    1c0e00: 03a03001 (moveq r3, #1) -> NOP (don't set rush flag)
@@ -696,6 +710,17 @@ static void disable_engine_touch_doubletap_sprint(void) {
 
     uintptr_t target_ctrl_ev16_c = (uintptr_t)so_mod.load_virtbase + 0x001c0e04U;
     so_patch_code((void *)target_ctrl_ev16_c, &arm_nop, 4);
+
+    // 6b. NOP the Event 16 entry in the CPlayerControl::onEvent jump table (0x001bf718).
+    //     Original: 1bf718: ea0002c8 (b 1c0240)
+    //     NOPing this causes Event 16 in the switch table to fall through to line 1bf71c (b 1bf22c, clean return).
+    uintptr_t target_ctrl_ev16_table = (uintptr_t)so_mod.load_virtbase + 0x001bf718U;
+    so_patch_code((void *)target_ctrl_ev16_table, &arm_nop, 4);
+
+    // 6c. NOP the Event 15 write to player_control[0x30] in CPlayerControl::onEvent (0x001c0df4).
+    //     Original: 1c0df4: 05c43030 (strbeq r3, [r4, #48])
+    uintptr_t target_ctrl_ev15_write = (uintptr_t)so_mod.load_virtbase + 0x001c0df4U;
+    so_patch_code((void *)target_ctrl_ev15_write, &arm_nop, 4);
 
     // 7. In PlayerComponent::ComputeControlVelocity (Path A at 0x1dda64):
     //    Original: 1dda64: e59f3198 (ldr r3, [pc, #408] -> &m_bRushbyDoubleTouch)
@@ -717,7 +742,7 @@ static void disable_engine_touch_doubletap_sprint(void) {
     so_patch_code((void *)target_ctrl_scheme_b, &arm_nop, 4);
 
     so_flush_caches(&so_mod);
-    runtime_trace("Disabled engine double-tap and touch sprint detection in PlayerComponent & WalkJoystick");
+    runtime_trace("Disabled engine double-tap and touch sprint detection in PlayerComponent, WalkJoystick & MobileAnalogJoystick");
 }
 
 void so_patch(void) {
