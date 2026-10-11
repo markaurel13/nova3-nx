@@ -295,6 +295,18 @@ static void async_save_flush_path(const char *real) {
   }
 }
 
+void async_save_flush_all(void) {
+  if (!g_save_thread_running) return;
+  while (1) {
+    int pending = 0;
+    mutexLock(&g_save_lock);
+    if (g_save_queue_head != NULL) pending = 1;
+    mutexUnlock(&g_save_lock);
+    if (!pending) break;
+    svcSleepThread(1000000ULL);
+  }
+}
+
 static inline const char *gla_basename(const char *path) {
   if (!path) return "";
   const char *slash = strrchr(path, '/');

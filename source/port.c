@@ -809,6 +809,10 @@ void port_run(void) {
         report_perf_metrics(in_gameplay, total_us, cpu_us, gpu_us, in_us);
     }
 
+    extern void async_save_flush_all(void);
+    async_save_flush_all();
+    debugPrintf("[port] Clean exit: all pending save operations flushed to storage.\n");
+    log_flush_ring();
 }
 
 static const char *const nova3_libs[] = { "libNOVA3_neon.so" };

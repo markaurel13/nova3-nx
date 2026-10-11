@@ -788,6 +788,48 @@ static void disable_engine_touch_doubletap_sprint(void) {
     runtime_trace("Disabled engine double-tap and touch sprint detection in PlayerComponent, WalkJoystick & MobileAnalogJoystick");
 }
 
+/* ------------------------------------------------- End-Level Auto-Save Hook */
+typedef int (*nova3_levels_save_fn)(void *self);
+typedef void *(*nova3_app_get_instance_fn)(void);
+typedef int (*nova3_app_save_fn)(void *self, const char *path, int mode);
+
+static void nova3_end_level_autosave_hook(void *self) {
+    // Call the original UnlockCrtLevel first
+    typedef void (*unlock_crt_level_fn)(void *);
+    unlock_crt_level_fn orig_unlock = (unlock_crt_level_fn)((uintptr_t)so_mod.load_virtbase + 0x002425D8U);
+    orig_unlock(self);
+
+    // 1. Force CLevelsManager::Save (saves unlocked missions to a3.dat immediately)
+    nova3_levels_save_fn levels_save = (nova3_levels_save_fn)((uintptr_t)so_mod.load_virtbase + 0x00252048U);
+    if (self) {
+        levels_save(self);
+    }
+
+    // 2. Force Application::Save if application instance is available (saves campaign profile to a1.dat)
+    nova3_app_get_instance_fn get_app = (nova3_app_get_instance_fn)((uintptr_t)so_mod.load_virtbase + 0x0059D9D0U);
+    void *app = get_app ? get_app() : NULL;
+    if (app) {
+        nova3_app_save_fn app_save = (nova3_app_save_fn)((uintptr_t)so_mod.load_virtbase + 0x005A1208U);
+        app_save(app, NULL, 1);
+    }
+
+    runtime_trace("Mission complete: immediately saved progress (a3.dat & a1.dat flushed)");
+}
+
+static void install_end_level_autosave_hook(void) {
+    // In GS_EndLevel::Create at 0x003AA574:
+    // Original:
+    //   3aa574: ebfa6017 (bl 0x2425d8 UnlockCrtLevel)
+    //   3aa578: e7956006 (ldr r6, [r5, r6])
+    uintptr_t target = (uintptr_t)so_mod.load_virtbase + 0x003AA574U;
+    static const uint32_t expected_bl[] = { 0xEBFA6017U, 0xE7956006U };
+    (void)install_arm_trampoline_guard(target, expected_bl, (uintptr_t)&nova3_end_level_autosave_hook,
+                                       "GS_EndLevel::Create UnlockCrtLevel call changed");
+
+    so_flush_caches(&so_mod);
+    runtime_trace("End-level instant autosave hook installed successfully");
+}
+
 void so_patch(void) {
     if (R_FAILED(jitCreate(&g_jit, g_patch_size))) fatal_error("jitCreate failed!");
     jitTransitionToExecutable(&g_jit);
@@ -800,4 +842,5 @@ void so_patch(void) {
     install_navspace_null_guards();
     install_null_safe_collada_scene_consumers();
     disable_engine_touch_doubletap_sprint();
+    install_end_level_autosave_hook();
 }
