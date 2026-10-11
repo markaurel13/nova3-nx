@@ -792,39 +792,48 @@ static void disable_engine_touch_doubletap_sprint(void) {
 typedef int (*nova3_levels_save_fn)(void *self);
 typedef void *(*nova3_app_get_instance_fn)(void);
 typedef int (*nova3_app_save_fn)(void *self, const char *path, int mode);
+typedef void (*nova3_unlock_crt_level_fn)(void *self);
+
+static nova3_unlock_crt_level_fn nova3_unlock_crt_level_original = NULL;
 
 static void nova3_end_level_autosave_hook(void *self) {
-    // Call the original UnlockCrtLevel first
-    typedef void (*unlock_crt_level_fn)(void *);
-    unlock_crt_level_fn orig_unlock = (unlock_crt_level_fn)((uintptr_t)so_mod.load_virtbase + 0x002425D8U);
-    orig_unlock(self);
+    if (nova3_unlock_crt_level_original) {
+        nova3_unlock_crt_level_original(self);
+    }
 
-    // 1. Force CLevelsManager::Save (saves unlocked missions to a3.dat immediately)
-    nova3_levels_save_fn levels_save = (nova3_levels_save_fn)((uintptr_t)so_mod.load_virtbase + 0x00252048U);
+    static int s_last_saved_level_idx = -1;
     if (self) {
-        levels_save(self);
-    }
+        int current_level = *(int *)((uint8_t *)self + 24);
+        if (current_level != s_last_saved_level_idx) {
+            s_last_saved_level_idx = current_level;
 
-    // 2. Force Application::Save if application instance is available (saves campaign profile to a1.dat)
-    nova3_app_get_instance_fn get_app = (nova3_app_get_instance_fn)((uintptr_t)so_mod.load_virtbase + 0x0059D9D0U);
-    void *app = get_app ? get_app() : NULL;
-    if (app) {
-        nova3_app_save_fn app_save = (nova3_app_save_fn)((uintptr_t)so_mod.load_virtbase + 0x005A1208U);
-        app_save(app, NULL, 1);
-    }
+            // 1. Force CLevelsManager::Save (saves unlocked missions to a3.dat immediately)
+            nova3_levels_save_fn levels_save = (nova3_levels_save_fn)((uintptr_t)so_mod.load_virtbase + 0x00252048U);
+            levels_save(self);
 
-    runtime_trace("Mission complete: immediately saved progress (a3.dat & a1.dat flushed)");
+            // 2. Force Application::Save if application instance is available (saves campaign profile to a1.dat)
+            nova3_app_get_instance_fn get_app = (nova3_app_get_instance_fn)((uintptr_t)so_mod.load_virtbase + 0x0059D9D0U);
+            void *app = get_app ? get_app() : NULL;
+            if (app) {
+                nova3_app_save_fn app_save = (nova3_app_save_fn)((uintptr_t)so_mod.load_virtbase + 0x005A1208U);
+                app_save(app, NULL, 1);
+            }
+
+            runtime_trace("Mission %d complete: immediately saved progress (a3.dat & a1.dat flushed)", current_level);
+        }
+    }
 }
 
 static void install_end_level_autosave_hook(void) {
-    // In GS_EndLevel::Create at 0x003AA574:
+    // Hook CLevelsManager::UnlockCrtLevel at 0x002425D8:
     // Original:
-    //   3aa574: ebfa6017 (bl 0x2425d8 UnlockCrtLevel)
-    //   3aa578: e7956006 (ldr r6, [r5, r6])
-    uintptr_t target = (uintptr_t)so_mod.load_virtbase + 0x003AA574U;
-    static const uint32_t expected_bl[] = { 0xEBFA6017U, 0xE7956006U };
-    (void)install_arm_trampoline_guard(target, expected_bl, (uintptr_t)&nova3_end_level_autosave_hook,
-                                       "GS_EndLevel::Create UnlockCrtLevel call changed");
+    //   2425d8: e92d4070 (push {r4, r5, r6, lr})
+    //   2425dc: e5905018 (ldr r5, [r0, #24])
+    uintptr_t target = (uintptr_t)so_mod.load_virtbase + 0x002425D8U;
+    static const uint32_t expected_prologue[] = { 0xE92D4070U, 0xE5905018U };
+    nova3_unlock_crt_level_original = (nova3_unlock_crt_level_fn)install_arm_trampoline_guard(
+        target, expected_prologue, (uintptr_t)&nova3_end_level_autosave_hook,
+        "CLevelsManager::UnlockCrtLevel prologue changed");
 
     so_flush_caches(&so_mod);
     runtime_trace("End-level instant autosave hook installed successfully");
