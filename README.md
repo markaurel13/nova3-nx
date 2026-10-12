@@ -110,7 +110,7 @@ sdmc:/switch/nova3/
 
 The game runs great on stock clocks, but the Switch power manager can put the GPU into "sleep mode" during light scenes because the game barely uses any GPU power, which can cause small hiccups.
 
-To lock the game at a super smooth 60 FPS without draining extra battery, you can optionally set this profile in **sys-clk**:
+To lock the game at a super smooth frame rate without draining extra battery, you can optionally set this profile in **sys-clk**:
 
 | Mode | CPU | GPU | RAM |
 |------|-----|-----|--------|
